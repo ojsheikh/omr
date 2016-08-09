@@ -333,6 +333,13 @@ omrthread_init(omrthread_library_t lib)
 		goto init_cleanup10;
 	}
 
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+ 	lib->spinInfo.numThreadsSpinning = 0;
+ 	lib->spinInfo.numThreadsWaiting = 0;
+ 	lib->spinInfo.numCpus = 0;
+ 	lib->spinInfo.spinHeuristic = 0;
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
+
 #if defined(OSX)
 	if (KERN_SUCCESS != host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &lib->clockService)) {
 		goto init_cleanup11;
@@ -1553,11 +1560,17 @@ thread_wrapper(WRAPPER_ARG arg)
 	 */
 	THREAD_LOCK(thread, CALLER_THREAD_WRAPPER);
 	if (thread->flags & J9THREAD_FLAG_SUSPENDED) {
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+		addAtomic(&lib->spinInfo.numThreadsWaiting, 1);
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 		J9OSCOND_WAIT(thread->condition, thread->mutex);
 		if ((thread->flags & J9THREAD_FLAG_SUSPENDED) == 0) {
 			break;
 		}
 		J9OSCOND_WAIT_LOOP();
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+		subtractAtomic(&lib->spinInfo.numThreadsWaiting, 1);
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 	}
 	thread->flags |= J9THREAD_FLAG_STARTED;
 	flags = thread->flags;
@@ -2185,9 +2198,12 @@ intptr_t
 omrthread_sleep_interruptable(int64_t millis, intptr_t nanos)
 {
 	omrthread_t self = MACRO_SELF();
+	omrthread_library_t lib = NULL;
 	intptr_t boundedMillis = BOUNDED_I64_TO_IDATA(millis);
 
 	ASSERT(self);
+
+	lib = self->library;
 
 	if ((millis < 0) || (nanos < 0) || (nanos >= 1000000)) {
 		return J9THREAD_INVALID_ARGUMENT;
@@ -2211,7 +2227,9 @@ omrthread_sleep_interruptable(int64_t millis, intptr_t nanos)
 	}
 
 	self->flags |= J9THREAD_FLAGM_SLEEPING_TIMED_INTERRUPTIBLE;
-
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+	addAtomic(&lib->spinInfo.numThreadsWaiting, 1);
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 	J9OSCOND_WAIT_IF_TIMEDOUT(self->condition, self->mutex, boundedMillis, nanos) {
 		break;
 	} else {
@@ -2232,7 +2250,9 @@ omrthread_sleep_interruptable(int64_t millis, intptr_t nanos)
 		}
 	}
 	J9OSCOND_WAIT_TIMED_LOOP();
-
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+	subtractAtomic(&lib->spinInfo.numThreadsWaiting, 1);
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 	self->flags &= ~(J9THREAD_FLAGM_SLEEPING_TIMED_INTERRUPTIBLE);
 	THREAD_UNLOCK(self);
 	return 0;
@@ -2252,6 +2272,7 @@ intptr_t
 omrthread_sleep(int64_t millis)
 {
 	omrthread_t self = MACRO_SELF();
+	omrthread_library_t lib = NULL;
 #ifdef OMR_ENV_DATA64
 	intptr_t boundedMillis = millis;
 #else
@@ -2260,6 +2281,8 @@ omrthread_sleep(int64_t millis)
 
 	ASSERT(self);
 
+	lib = self->library;
+
 	if (millis < 0) {
 		return J9THREAD_INVALID_ARGUMENT;
 	}
@@ -2267,12 +2290,16 @@ omrthread_sleep(int64_t millis)
 	THREAD_LOCK(self, CALLER_SLEEP);
 
 	self->flags |= J9THREAD_FLAGM_SLEEPING_TIMED;
-
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+	addAtomic(&lib->spinInfo.numThreadsWaiting, 1);
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 	J9OSCOND_WAIT_IF_TIMEDOUT(self->condition, self->mutex, boundedMillis, 0) {
 		break;
 	}
 	J9OSCOND_WAIT_TIMED_LOOP();
-
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+	subtractAtomic(&lib->spinInfo.numThreadsWaiting, 1);
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 	self->flags &= ~J9THREAD_FLAGM_SLEEPING_TIMED;
 	THREAD_UNLOCK(self);
 	return 0;
@@ -2407,19 +2434,26 @@ void
 omrthread_suspend(void)
 {
 	omrthread_t self = MACRO_SELF();
+	omrthread_library_t lib = NULL;
 	ASSERT(self);
+
+	lib = self->library;
 
 	Trc_THR_ThreadSuspendEnter(self);
 
 	THREAD_LOCK(self, CALLER_SUSPEND);
 	self->flags |= J9THREAD_FLAG_SUSPENDED;
-
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+	addAtomic(&lib->spinInfo.numThreadsWaiting, 1);
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 	J9OSCOND_WAIT(self->condition, self->mutex);
 		if ((self->flags & J9THREAD_FLAG_SUSPENDED) == 0) {
 			break;
 		}
 	J9OSCOND_WAIT_LOOP();
-
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+	subtractAtomic(&lib->spinInfo.numThreadsWaiting, 1);
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 	THREAD_UNLOCK(self);
 
 	Trc_THR_ThreadSuspendExit(self);
@@ -3106,7 +3140,10 @@ omrthread_park(int64_t millis, intptr_t nanos)
 {
 	intptr_t rc = 0;
 	omrthread_t self = MACRO_SELF();
+	omrthread_library_t lib = NULL;
 	ASSERT(self);
+
+	lib = self->library;
 
 	THREAD_LOCK(self, CALLER_PARK);
 
@@ -3118,7 +3155,9 @@ omrthread_park(int64_t millis, intptr_t nanos)
 		rc = J9THREAD_PRIORITY_INTERRUPTED;
 	} else {
 		self->flags |= J9THREAD_FLAGM_PARKED_INTERRUPTIBLE;
-
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+		addAtomic(&lib->spinInfo.numThreadsWaiting, 1);
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 		if (millis || nanos) {
 			intptr_t boundedMillis = BOUNDED_I64_TO_IDATA(millis);
 
@@ -3152,6 +3191,9 @@ omrthread_park(int64_t millis, intptr_t nanos)
 				}
 			J9OSCOND_WAIT_LOOP();
 		}
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+		subtractAtomic(&lib->spinInfo.numThreadsWaiting, 1);
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 	}
 
 	self->flags &= ~(J9THREAD_FLAGM_PARKED_INTERRUPTIBLE | J9THREAD_FLAG_TIMER_SET);
@@ -3806,6 +3848,7 @@ static intptr_t
 monitor_enter_three_tier(omrthread_t self, omrthread_monitor_t monitor, BOOLEAN isAbortable)
 {
 	int blockedCount = 0;
+	omrthread_library_t lib = NULL;
 
 	ASSERT(self);
 	ASSERT(monitor);
@@ -3814,6 +3857,8 @@ monitor_enter_three_tier(omrthread_t self, omrthread_monitor_t monitor, BOOLEAN 
 	ASSERT(monitor->spinCount3 != 0);
 	ASSERT(monitor->owner != self);
 	ASSERT(FREE_TAG != monitor->count);
+
+	lib = self->library;
 
 	while (1) {
 
@@ -3860,9 +3905,15 @@ monitor_enter_three_tier(omrthread_t self, omrthread_monitor_t monitor, BOOLEAN 
 		THREAD_UNLOCK(self);
 
 		threadEnqueue(&monitor->blocking, self);
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+		addAtomic(&lib->spinInfo.numThreadsWaiting, 1);
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 		J9OSCOND_WAIT(self->condition, monitor->mutex);
 			break;
 		J9OSCOND_WAIT_LOOP();
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+		subtractAtomic(&lib->spinInfo.numThreadsWaiting, 1);
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 		threadDequeue(&monitor->blocking, self);
 
 		/*
@@ -4296,6 +4347,7 @@ monitor_wait_original(omrthread_t self, omrthread_monitor_t monitor,
 					  int64_t millis, intptr_t nanos, uintptr_t interruptible)
 {
 	omrthread_t *queue;
+	omrthread_library_t lib = self->library;
 	intptr_t count = -1;
 	uintptr_t interrupted = 0, notified = 0, priorityinterrupted = 0;
 	uintptr_t intrMask = 0;
@@ -4374,7 +4426,9 @@ monitor_wait_original(omrthread_t self, omrthread_monitor_t monitor,
 
 	self->waitNumber = monitor_maximum_wait_number(monitor) + 1;
 	threadEnqueue(&monitor->waiting, self);
-
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+	addAtomic(&lib->spinInfo.numThreadsWaiting, 1);
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 	if (millis || nanos) {
 		/*
 		 * TIMED WAIT
@@ -4432,6 +4486,9 @@ monitor_wait_original(omrthread_t self, omrthread_monitor_t monitor,
 	}
 
 	/* DONE WAITING AT THIS POINT */
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+	subtractAtomic(&lib->spinInfo.numThreadsWaiting, 1);
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 
 #ifndef OMR_THR_THREE_TIER_LOCKING
 	self->monitor = 0;
@@ -4540,6 +4597,7 @@ monitor_wait_three_tier(omrthread_t self, omrthread_monitor_t monitor,
 						int64_t millis, intptr_t nanos, uintptr_t interruptible)
 {
 	omrthread_t *queue;
+	omrthread_library_t lib = self->library;
 	intptr_t count = -1;
 	uintptr_t interrupted = 0, notified = 0, priorityinterrupted = 0;
 	uintptr_t intrMask = 0;
@@ -4623,7 +4681,9 @@ monitor_wait_three_tier(omrthread_t self, omrthread_monitor_t monitor,
 	self->lockedmonitorcount--;
 
 	threadEnqueue(&monitor->waiting, self);
-
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+	addAtomic(&lib->spinInfo.numThreadsWaiting, 1);
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 	if (millis || nanos) {
 		/*
 		 * TIMED WAIT
@@ -4674,6 +4734,9 @@ monitor_wait_three_tier(omrthread_t self, omrthread_monitor_t monitor,
 	}
 
 	/* DONE WAITING AT THIS POINT */
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+	subtractAtomic(&lib->spinInfo.numThreadsWaiting, 1);
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 
 	/* we have to remove self from the wait queue */
 	if (notified) {

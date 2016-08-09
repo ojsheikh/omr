@@ -1435,6 +1435,39 @@ omrthread_monitor_pin(omrthread_monitor_t monitor, omrthread_t self);
 void
 omrthread_monitor_unpin(omrthread_monitor_t monitor, omrthread_t self);
 
+#if defined(OMR_DYNAMIC_SPIN_FEATURE)
+/**
+ * @brief Setter for default_library->spinInfo->numCpus. Stores the number of CPUs on the machine.
+ *
+ * @param cpus the number of CPUs on the machine
+ *
+ * @return none
+ */
+void
+omrthread_set_num_cpus(const uintptr_t cpus);
+
+/**
+ * @brief Getter for default_library->spinInfo->spinHeuristic. Provides the type of heuristic to be
+ * used for spinning.
+ *
+ * @return the type of heuristic to be used for spinning
+ */
+uintptr_t
+omrthread_get_spin_heuristic(void);
+
+/**
+ * @brief Setter for default_library->spinInfo->spinHeuristic. Determines the type of heuristic to be
+ * used for spinning.
+ *
+ * @param heuristic the type of heuristic to be used for spinning
+ *
+ * @return none
+ */
+void
+omrthread_set_spin_heuristic(const uintptr_t heuristic);
+
+#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
+
 /* forward struct definition */
 struct J9ThreadLibrary;
 
