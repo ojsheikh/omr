@@ -53,6 +53,14 @@ typedef struct J9Semaphore *j9sem_t;
 #define J9THREAD_PRIORITY_MAX 11
 
 /*
+ * Enum to activate and deactivate spin heuristic
+ */
+enum {
+	OMRTHREAD_SPIN_HEURISTIC_OFF = 0,
+	OMRTHREAD_SPIN_HEURISTIC_ON
+};
+
+/*
 A thread priority calue can be one of three possible types: a java thread priority, a omrthread thread priority or a native operating system priority.
 A single integer can be used to store both the priority value and type, and these macros allow for this storage and conversion to the desired java
 or omrthread priority value.

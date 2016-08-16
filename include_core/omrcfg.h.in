@@ -210,6 +210,12 @@ extern "C" {
 @OMR_NOTIFY_POLICY_CONTROL@
 
 /**
+ * Dynamic spin feature will be enabled at compile time.
+ * ifRemoved: Dynamic spin feature will be disabled at compile time.
+ */
+@OMR_DYNAMIC_SPIN_FEATURE@
+
+/**
  * This enables the option to select different algorithms for yielding.
  */
 @OMR_THR_YIELD_ALG@
