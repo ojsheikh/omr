@@ -124,6 +124,14 @@ define WRITE_TRACING_THREAD_EXPORTS
 endef
 endif
 
+ifeq (1,$(OMR_DYNAMIC_SPIN_FEATURE))
+define WRITE_DYNAMIC_SPIN_EXPORTS
+@echo omrthread_set_num_cpus >>$@
+@echo omrthread_get_spin_heuristic >>$@
+@echo omrthread_set_spin_heuristic >>$@
+endef
+endif
+
 define WRITE_COMMON_THREAD_EXPORTS
 @echo j9sem_init >>$@
 @echo j9sem_post >>$@
@@ -211,10 +219,6 @@ define WRITE_COMMON_THREAD_EXPORTS
 @echo omrthread_set_priority_spread >>$@
 @echo omrthread_set_name >>$@
 
-@echo omrthread_set_num_cpus >>$@
-@echo omrthread_get_spin_heuristic >>$@
-@echo omrthread_set_spin_heuristic >>$@
-
 @echo omrthread_lib_enable_cpu_monitor >>$@
 @echo omrthread_lib_lock >>$@
 @echo omrthread_lib_try_lock >>$@
@@ -276,4 +280,5 @@ $(WRITE_ZOS_THREAD_EXPORTS)
 $(WRITE_JLM_THREAD_EXPORTS)
 $(WRITE_ADAPTIVE_SPIN_THREAD_EXPORTS)
 $(WRITE_TRACING_THREAD_EXPORTS)
+$(WRITE_DYNAMIC_SPIN_EXPORTS)
 endef
