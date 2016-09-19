@@ -64,7 +64,7 @@ buildPDBPath(struct OMRPortLibrary *portLibrary, HANDLE process)
 
 		for (i = 0; i < nModules; i++) {
 			modulePathLength = GetModuleFileNameW(hModules[i], modulePath, (EsMaxPath + 1));
-			if ((0 != modulePathLength) && (modulePathLength < (EsMaxPath + 1)))  {
+			if ((0 != modulePathLength) && (modulePathLength < (EsMaxPath + 1))) {
 				wchar_t *cursor;
 				uintptr_t j;
 				uintptr_t moduleNameLen;
