@@ -90,6 +90,7 @@
 #include "p/codegen/PPCHelperCallSnippet.hpp"
 #include "p/codegen/PPCInstruction.hpp"
 #include "p/codegen/PPCOutOfLineCodeSection.hpp"
+#include "p/codegen/PPCSystemLinkage.hpp"
 #include "p/codegen/PPCTableOfConstants.hpp"
 #include "ras/Debug.hpp"                            // for TR_DebugBase
 #include "ras/DebugCounter.hpp"
@@ -1945,12 +1946,56 @@ void OMR::Power::CodeGenerator::deleteInst(TR::Instruction* old)
    nxt->setPrev(prv);
    }
 
+TR::Linkage *
+OMR::Power::CodeGenerator::createLinkage(TR_LinkageConventions lc)
+   {
+   // *this    swipeable for debugging purposes
+   TR::Linkage *linkage = NULL;
+
+   switch (lc)
+      {
+      case TR_System:
+         linkage = new (self()->trHeapMemory()) TR_PPCSystemLinkage(self());
+         break;
+
+      default:
+         linkage = new (self()->trHeapMemory()) TR_PPCSystemLinkage(self());
+      }
+
+   self()->setLinkage(lc, linkage);
+   return linkage;
+   }
+
 void OMR::Power::CodeGenerator::generateBinaryEncodingPrologue(
       TR_PPCBinaryEncodingData *data)
    {
-   // Default implementation
-   //
-   return;
+   TR::Compilation *comp = self()->comp();
+   data->recomp = NULL;
+   data->cursorInstruction = comp->getFirstInstruction();
+   data->preProcInstruction = data->cursorInstruction;
+
+   data->jitTojitStart = data->cursorInstruction;
+   data->cursorInstruction = NULL;
+
+   self()->getLinkage()->loadUpArguments(data->cursorInstruction);
+
+   data->cursorInstruction = comp->getFirstInstruction();
+
+   while (data->cursorInstruction && data->cursorInstruction->getOpCodeValue() != TR::InstOpCode::proc)
+      {
+      data->estimate          = data->cursorInstruction->estimateBinaryLength(data->estimate);
+      data->cursorInstruction = data->cursorInstruction->getNext();
+      }
+
+   int32_t boundary = comp->getOptions()->getJitMethodEntryAlignmentBoundary(self());
+   if (boundary && (boundary > 4) && ((boundary & (boundary - 1)) == 0))
+      {
+      comp->getOptions()->setJitMethodEntryAlignmentBoundary(boundary);
+      self()->setPreJitMethodEntrySize(data->estimate);
+      data->estimate += (boundary - 4);
+      }
+
+   self()->getLinkage()->createPrologue(data->cursorInstruction);
    }
 
 void OMR::Power::CodeGenerator::doBinaryEncoding()
@@ -3427,90 +3472,7 @@ bool OMR::Power::CodeGenerator::supportsSinglePrecisionSQRT()
 
 bool OMR::Power::CodeGenerator::suppressInliningOfRecognizedMethod(TR::RecognizedMethod method)
    {
-   if (self()->isMethodInAtomicLongGroup(method))
-      return true;
-
-#ifdef J9_PROJECT_SPECIFIC
-   if (!self()->comp()->compileRelocatableCode() &&
-       !self()->comp()->getOption(TR_DisableDFP) &&
-       TR::Compiler->target.cpu.supportsDecimalFloatingPoint())
-      {
-      if (method == TR::java_math_BigDecimal_DFPIntConstructor ||
-          method == TR::java_math_BigDecimal_DFPLongConstructor ||
-          method == TR::java_math_BigDecimal_DFPLongExpConstructor ||
-          method == TR::java_math_BigDecimal_DFPAdd ||
-          method == TR::java_math_BigDecimal_DFPSubtract ||
-          method == TR::java_math_BigDecimal_DFPMultiply ||
-          method == TR::java_math_BigDecimal_DFPDivide ||
-          method == TR::java_math_BigDecimal_DFPScaledAdd ||
-          method == TR::java_math_BigDecimal_DFPScaledSubtract ||
-          method == TR::java_math_BigDecimal_DFPScaledMultiply ||
-          method == TR::java_math_BigDecimal_DFPScaledDivide ||
-          method == TR::java_math_BigDecimal_DFPRound ||
-          method == TR::java_math_BigDecimal_DFPSetScale ||
-          method == TR::java_math_BigDecimal_DFPCompareTo ||
-          method == TR::java_math_BigDecimal_DFPSignificance ||
-          method == TR::java_math_BigDecimal_DFPExponent ||
-          method == TR::java_math_BigDecimal_DFPBCDDigits ||
-          method == TR::java_math_BigDecimal_DFPUnscaledValue)
-            return true;
-      }
-
-   if ((method==TR::java_util_concurrent_atomic_AtomicBoolean_getAndSet) ||
-      (method==TR::java_util_concurrent_atomic_AtomicInteger_getAndAdd) ||
-      (method==TR::java_util_concurrent_atomic_AtomicInteger_getAndIncrement) ||
-      (method==TR::java_util_concurrent_atomic_AtomicInteger_getAndDecrement) ||
-      (method==TR::java_util_concurrent_atomic_AtomicInteger_getAndSet) ||
-      (method==TR::java_util_concurrent_atomic_AtomicInteger_addAndGet) ||
-      (method==TR::java_util_concurrent_atomic_AtomicInteger_decrementAndGet) ||
-      (method==TR::java_util_concurrent_atomic_AtomicInteger_incrementAndGet))
-      {
-      return true;
-      }
-
-   if (method == TR::java_lang_Math_abs_F ||
-       method == TR::java_lang_Math_abs_D ||
-       method == TR::java_lang_Math_abs_I ||
-       method == TR::java_lang_Math_abs_L ||
-       method == TR::java_lang_Integer_highestOneBit ||
-       method == TR::java_lang_Integer_numberOfLeadingZeros ||
-       method == TR::java_lang_Integer_numberOfTrailingZeros ||
-       method == TR::java_lang_Integer_rotateLeft ||
-       method == TR::java_lang_Integer_rotateRight ||
-       method == TR::java_lang_Long_highestOneBit ||
-       method == TR::java_lang_Long_numberOfLeadingZeros ||
-       method == TR::java_lang_Long_numberOfTrailingZeros ||
-       method == TR::java_lang_Short_reverseBytes ||
-       method == TR::java_lang_Integer_reverseBytes ||
-       method == TR::java_lang_Long_reverseBytes ||
-       (TR::Compiler->target.is64Bit() &&
-        (method == TR::java_lang_Long_rotateLeft ||
-        method == TR::java_lang_Long_rotateRight)))
-      {
-      return true;
-      }
-
-   // Transactional Memory
-   if (self()->getSupportsTM())
-      {
-      if (method == TR::java_util_concurrent_ConcurrentHashMap_tmEnabled ||
-          method == TR::java_util_concurrent_ConcurrentHashMap_tmPut ||
-          method == TR::java_util_concurrent_ConcurrentLinkedQueue_tmOffer ||
-          method == TR::java_util_concurrent_ConcurrentLinkedQueue_tmPoll ||
-          method == TR::java_util_concurrent_ConcurrentLinkedQueue_tmEnabled ||
-          method == TR::java_util_concurrent_atomic_AtomicStampedReference_tmDoubleWordCAS ||
-          method == TR::java_util_concurrent_atomic_AtomicStampedReference_tmDoubleWordSet ||
-          method == TR::java_util_concurrent_atomic_AtomicStampedReference_tmEnabled ||
-          method == TR::java_util_concurrent_atomic_AtomicMarkableReference_tmDoubleWordCAS ||
-          method == TR::java_util_concurrent_atomic_AtomicMarkableReference_tmDoubleWordSet ||
-          method == TR::java_util_concurrent_atomic_AtomicMarkableReference_tmEnabled)
-          {
-          return true;
-          }
-      }
-#endif
-
-   return false;
+   return self()->isMethodInAtomicLongGroup(method);
    }
 
 

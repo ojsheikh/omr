@@ -149,6 +149,13 @@ endif
 # VM Tests
 test_targets += fvtest/vmtest
 
+# OMR JIT
+ifeq (1,$(OMR_JIT))
+test_targets += fvtest/compilertest
+main_targets += jitbuilder
+test_targets += jitbuilder/release
+endif
+
 DO_TEST_TARGET := yes
 # ENABLE_FVTEST_AGENT forces rastest to build, even if fvtests are disabled.
 ifeq (no,$(ENABLE_FVTEST))

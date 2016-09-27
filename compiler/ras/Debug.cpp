@@ -96,6 +96,7 @@
 #ifdef J9_PROJECT_SPECIFIC
 #include "env/CHTable.hpp"                            // for TR_CHTable, etc
 #include "env/VMAccessCriticalSection.hpp"            // for VMAccessCriticalSection
+#include "env/VMJ9.h"
 #endif
 
 #ifdef AIXPPC
@@ -601,22 +602,20 @@ TR_Debug::trace(const char * format, ...)
    {
    if (_file != NULL)
       {
-      char buffer[256];
       va_list args;
       va_start(args,format);
-      TR::IO::vfprintf(_file, getDiagnosticFormat(format, buffer, sizeof(buffer)/sizeof(char)), args);
+      vtrace(format, args);
       va_end(args);
-      trfflush(_file);
       }
    }
 
 void
-TR_Debug::trace(const char * format, va_list arg)
+TR_Debug::vtrace(const char * format, va_list args)
    {
    if (_file != NULL)
       {
       char buffer[256];
-      TR::IO::vfprintf(_file, getDiagnosticFormat(format, buffer, sizeof(buffer)), arg);
+      TR::IO::vfprintf(_file, getDiagnosticFormat(format, buffer, sizeof(buffer)), args);
       trfflush(_file);
       }
    }
@@ -1940,9 +1939,9 @@ TR_Debug::getStaticName(TR::SymbolReference * symRef)
             if (stringLocation)
                {
                uintptrj_t string = *stringLocation;
-               length = comp()->fe()->getStringUTF8Length(string);
+               length = comp()->fej9()->getStringUTF8Length(string);
                contents = (char*)comp()->trMemory()->allocateMemory(length+1, stackAlloc, TR_MemoryBase::UnknownType);
-               comp()->fe()->getStringUTF8(string, contents, length+1);
+               comp()->fej9()->getStringUTF8(string, contents, length+1);
 
                //
                // We don't want to mess up the logs too much.  Make sure the

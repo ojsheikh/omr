@@ -1531,7 +1531,7 @@ Optional Features:
                           are not explicitly enabled or disabled. (Default:
                           yes)
   --disable-OMR_GC        Enable building the OMR GC. (Default: yes)
-  --enable-OMR_JIT        Enable building the OMR JIT. (Default: no)
+  --disable-OMR_JIT       Enable building the OMR JIT. (Default: yes)
   --disable-OMR_PORT      Enable building the Port library. (Default: yes)
   --disable-OMR_THREAD    Enable building the Thread library. (Default: yes)
   --disable-OMR_OMRSIG    Enable building the OMRSig library. (Default: yes)
@@ -4259,6 +4259,10 @@ esac
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $OMR_TOOLCHAIN" >&5
 $as_echo "$OMR_TOOLCHAIN" >&6; }
 
+# Default OMRGLUE to example/glue if it was not specified
+OMRGLUE=${OMRGLUE:-"./example/glue"}
+
+
 ## Default Variables
 
 # Set program defaults if they are undefined
@@ -5245,9 +5249,15 @@ else
 fi
 else
 
-	OMR_JIT="#undef OMR_JIT"
+	if test "x" = "x"; then :
+  OMR_JIT="#define OMR_JIT"
 
-	echo "OMR_JIT := 0" >> omrmakefiles/omrcfg.mk
+else
+  OMR_JIT="#define OMR_JIT "
+
+
+fi
+	echo "OMR_JIT := 1" >> omrmakefiles/omrcfg.mk
 
 
 fi

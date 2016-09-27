@@ -142,7 +142,6 @@ bool compareNodes(TR::Node * node1, TR::Node * node2, TR::CodeGenerator *cg);
 bool isMatchingStoreRestore(TR::Instruction *cursorLoad, TR::Instruction *cursorStore, TR::CodeGenerator *cg);
 void handleLoadWithRegRanges(TR::Instruction *inst, TR::CodeGenerator *cg);
 
-
 void
 OMR::Z::CodeGenerator::preLowerTrees()
    {
@@ -787,6 +786,9 @@ OMR::Z::CodeGenerator::CodeGenerator()
      _nonDestructiveToDestructiveOpCode[TR::InstOpCode::SRK] = TR::InstOpCode::SR;
      _nonDestructiveToDestructiveOpCode[TR::InstOpCode::SGRK] = TR::InstOpCode::SGR;
      }
+   
+   self()->getS390Linkage()->initS390RealRegisterLinkage();
+   self()->setAccessStaticsIndirectly(true);
    }
 
 TR_GlobalRegisterNumber
@@ -4910,6 +4912,44 @@ TR_S390Peephole::tryMoveImmediate()
   return false;
   }
 
+/** \details
+ *     This transformation may not always be possible because the LHI instruction does not modify the condition
+ *     code while the XR instruction does. We must be pessimistic in our algorithm and carry out the transformation
+ *     if and only if there exists an instruction B that sets the condition code between the LHI instruction A and
+ *     some instruction C that reads the condition code.
+ *
+ *     That is, we are trying to find instruction that comes after the LHI in the execution order that will clobber
+ *     the condition code before any instruction that consumes a condition code.
+ */
+bool TR_S390Peephole::ReduceLHIToXR()
+  {
+  TR_S390RIInstruction* lhiInstruction = static_cast<TR_S390RIInstruction*>(_cursor);
+
+  if (lhiInstruction->getSourceImmediate() == 0)
+     {
+     TR::Instruction* nextInstruction = lhiInstruction->getNext();
+
+     while (nextInstruction != NULL && !nextInstruction->getOpCode().readsCC())
+        {
+        if (nextInstruction->getOpCode().setsCC() || nextInstruction->getNode()->getOpCodeValue() == TR::BBEnd)
+           {
+           TR::DebugCounter::incStaticDebugCounter(_cg->comp(), "z/peephole/LHI/XR");
+
+           TR::Instruction* xrInstruction = generateRRInstruction(_cg, TR::InstOpCode::XR, lhiInstruction->getNode(), lhiInstruction->getRegisterOperand(1), lhiInstruction->getRegisterOperand(1));
+
+           _cg->replaceInst(lhiInstruction, xrInstruction);
+
+           _cursor = xrInstruction;
+
+           return true;
+           }
+
+        nextInstruction = nextInstruction->getNext();
+        }
+     }
+
+  return false;
+  }
 
 void
 TR_S390Peephole::perform()
@@ -5109,6 +5149,21 @@ TR_S390Peephole::perform()
                }
             break;
             }
+
+         case TR::InstOpCode::LHI:
+            {
+            // This optimization is disabled by default because there exist cases in which we cannot determine whether this transformation
+            // is functionally valid or not. The issue resides in the various runtime patching sequences using the LHI instruction as a
+            // runtime patch point for an offset. One concrete example can be found in the virtual dispatch sequence for unresolved calls
+            // on 31-bit platforms where an LHI instruction is used and is patched at runtime.
+            //
+            // TODO (Issue #255): To enable this optimization we need to implement an API which marks instructions that will be patched at
+            // runtime and prevent ourselves from modifying such instructions in any way.
+            //
+            // ReduceLHIToXR();
+            }
+            break;
+
          case TR::InstOpCode::EX:
             {
             static char * disableEXRLDispatch = feGetEnv("TR_DisableEXRLDispatch");
@@ -5377,14 +5432,25 @@ OMR::Z::CodeGenerator::replaceInst(TR::Instruction* old, TR::Instruction* curr)
       }
    }
 
+// TODO (Issue #254): This should really be a common code generator API. Push this up to the common code generator.
 void
 OMR::Z::CodeGenerator::deleteInst(TR::Instruction* old)
    {
    TR::Instruction* prv = old->getPrev();
    TR::Instruction* nxt = old->getNext();
    prv->setNext(nxt);
-   if (nxt != NULL)      //don't try to dereference if old is the last instruction
+
+   // The next instruction could be the append instruction
+   if (nxt != NULL)
+      {
       nxt->setPrev(prv);
+      }
+
+   // Update the append instruction if we are deleting the last instruction in the stream
+   if (self()->comp()->getAppendInstruction() == old)
+      {
+      self()->comp()->setAppendInstruction(prv);
+      }
    }
 
 
@@ -7807,6 +7873,35 @@ OMR::Z::CodeGenerator::create64BitLiteralPoolSnippet(TR::DataTypes dt, int64_t v
    TR_ASSERT( dt == TR::Int64, "create64BitLiteralPoolSnippet is only for data constants\n");
 
    return self()->findOrCreate8ByteConstant(0, value);
+   }
+
+TR::Linkage *
+OMR::Z::CodeGenerator::createLinkage(TR_LinkageConventions lc)
+   {
+   // *this    swipeable for debugging purposes
+   TR::Linkage * linkage;
+   TR::Compilation *comp = self()->comp();
+   switch (lc)
+      {
+      case TR_Helper:
+         linkage = new (self()->trHeapMemory()) TR_S390zLinuxSystemLinkage(self());
+         break;
+
+      case TR_Private:
+        // no private linkage, fall through to system
+
+      case TR_System:
+         if (TR::Compiler->target.isLinux())
+            linkage = new (self()->trHeapMemory()) TR_S390zLinuxSystemLinkage(self());
+         else
+            linkage = new (self()->trHeapMemory()) TR_S390zOSSystemLinkage(self());
+         break;
+
+      default :
+         TR_ASSERT(0, "\nTestarossa error: Illegal linkage convention %d\n", lc);
+      }
+   self()->setLinkage(lc, linkage);
+   return linkage;
    }
 
 TR_S390ConstantDataSnippet *

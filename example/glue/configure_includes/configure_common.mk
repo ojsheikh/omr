@@ -19,11 +19,13 @@
 CONFIGURE_ARGS += \
   --enable-OMR_EXAMPLE \
   --enable-OMR_GC \
+  --disable-OMR_JIT \
   --enable-OMR_PORT \
   --enable-OMR_THREAD \
   --enable-OMR_OMRSIG \
   --enable-fvtest \
   --enable-OMR_GC_SEGREGATED_HEAP \
   --enable-OMR_GC_MODRON_SCAVENGER \
+  --enable-OMR_GC_MODRON_CONCURRENT_MARK \
   --enable-OMR_THR_CUSTOM_SPIN_OPTIONS \
   --enable-OMR_NOTIFY_POLICY_CONTROL
