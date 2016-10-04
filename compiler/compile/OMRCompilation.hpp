@@ -67,7 +67,7 @@ namespace OMR { typedef OMR::Compilation CompilationConnector; }
 
 #include "omr.h"
 
-#include "il/symbol/ResolvedMethodSymbol.hpp" // REMOVE_THIS_LATER
+#include "il/symbol/ResolvedMethodSymbol.hpp"
 
 
 class TR_AOTGuardSite;
@@ -965,7 +965,6 @@ public:
 #endif
 
    // To TransformUtil
-   void removeTree(TR::TreeTop * tt);
    void setStartTree(TR::TreeTop * tt);
 
 
