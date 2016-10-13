@@ -571,7 +571,7 @@ TR_S390zOSSystemLinkage::calculateInterfaceMappingFlags(TR::ResolvedMethodSymbol
    // Bits 3-7 inclusive
    //
 
-   TR::DataTypes dataType = TR::NoType;
+   TR::DataType dataType = TR::NoType;
    int32_t aggregateLength = 0;
       TR_ASSERT( 0, "dont know how to get datatype of non-WCode method");
    uint32_t rva = calculateReturnValueAdjustFlag(dataType, aggregateLength);
@@ -599,7 +599,7 @@ TR_S390zOSSystemLinkage::calculateInterfaceMappingFlags(TR::ResolvedMethodSymbol
    while ((parmCursor != NULL) && !done)
       {
       TR::Symbol *parmSymbol = parmCursor;
-      TR::DataTypes dataType = parmSymbol->getDataType();
+      TR::DataType dataType = parmSymbol->getDataType();
       int32_t argSize = parmSymbol->getSize();
 
       done = updateFloatParmDescriptorFlags(&parmDescriptorFields, funcSymbol, parmCount, argSize, dataType, &floatParmNum, &lastFloatParmAreaOffset, &parmAreaOffset);
@@ -617,7 +617,7 @@ TR_S390zOSSystemLinkage::calculateInterfaceMappingFlags(TR::ResolvedMethodSymbol
  * Calculate "Return value adjust" component of XPLink call descriptor
  */
 uint32_t
-TR_S390zOSSystemLinkage::calculateReturnValueAdjustFlag(TR::DataTypes dataType, int32_t aggregateLength)
+TR_S390zOSSystemLinkage::calculateReturnValueAdjustFlag(TR::DataType dataType, int32_t aggregateLength)
    {
    // 5 bit values for "return value adjust" field of XPLink descriptor
    #define XPLINK_RVA_RETURN_VOID_OR_UNUSED    0x00
@@ -697,7 +697,7 @@ TR_S390zOSSystemLinkage::calculateReturnValueAdjustFlag(TR::DataTypes dataType, 
  * determined.
  */
 bool
-TR_S390zOSSystemLinkage::updateFloatParmDescriptorFlags(uint32_t *parmDescriptorFields, TR::Symbol *funcSymbol, int32_t parmCount, int32_t argSize, TR::DataTypes dataType, int32_t *floatParmNum, uint32_t *lastFloatParmAreaOffset, uint32_t *parmAreaOffset)
+TR_S390zOSSystemLinkage::updateFloatParmDescriptorFlags(uint32_t *parmDescriptorFields, TR::Symbol *funcSymbol, int32_t parmCount, int32_t argSize, TR::DataType dataType, int32_t *floatParmNum, uint32_t *lastFloatParmAreaOffset, uint32_t *parmAreaOffset)
    {
    uint32_t gprSize = cg()->machine()->getGPRSize();
 
@@ -1134,7 +1134,7 @@ TR_S390zLinuxSystemLinkage::generateInstructionsForCall(TR::Node * callNode, TR:
          TR::SymbolReference *callSymRef = callNode->getSymbolReference();
          TR::Symbol *callSymbol = callSymRef->getSymbol();
          TR::Register * fpReg = systemReturnAddressRegister;
-         TR::Instruction * callInstr = new (trHeapMemory()) TR_S390RILInstruction(TR::InstOpCode::BRASL, callNode, fpReg, callSymbol, callSymRef, codeGen);
+         TR::Instruction * callInstr = new (trHeapMemory()) TR::S390RILInstruction(TR::InstOpCode::BRASL, callNode, fpReg, callSymbol, callSymRef, codeGen);
          callInstr->setDependencyConditions(deps);
          }
       }
@@ -1266,12 +1266,12 @@ TR_S390zLinuxSystemLinkage::initParamOffset(TR::ResolvedMethodSymbol * method, i
       {
       int32_t previousIndex=parmCursor->getLinkageRegisterIndex();
       parmCursor->setLinkageRegisterIndex(-1);
-      TR::DataTypes originalDataType=parmCursor->getDataType();
+      TR::DataType originalDataType=parmCursor->getDataType();
 
       if ( parmCursor->getDataType()==TR::Aggregate)
          {
          TR_ASSERT(0, "should not reach here due to folding of getDataTypeOfAggregateMember()");
-         TR::DataTypes dt = TR::NoType;
+         TR::DataType dt = TR::NoType;
          if(dt != TR::NoType) parmCursor->setDataType(dt);
          else if (parmCursor->getSize() > 8) parmCursor->setDataType(TR::Address);
          else if (parmCursor->getSize() == 8) parmCursor->setDataType(TR::Int64);
@@ -2008,7 +2008,7 @@ void TR_S390SystemLinkage::createPrologue(TR::Instruction * cursor)
    // Literal Pool for Ruby and Python and test
    firstSnippet = cg()->getFirstSnippet();
    if ( cg()->isLiteralPoolOnDemandOn() != true && firstSnippet != NULL )
-      cursor = new (trHeapMemory()) TR_S390RILInstruction(TR::InstOpCode::LARL, firstNode, lpReg, firstSnippet, cursor, cg());
+      cursor = new (trHeapMemory()) TR::S390RILInstruction(TR::InstOpCode::LARL, firstNode, lpReg, firstSnippet, cursor, cg());
 #endif
 
 
@@ -2327,8 +2327,8 @@ void TR_S390SystemLinkage::createEpilogue(TR::Instruction * cursor)
 
    cursor = generateS390RegInstruction(cg(), TR::InstOpCode::BCR, nextNode,
           getS390RealRegister(REGNUM(TR::RealRegister::GPR14)), cursor);
-   ((TR_S390RegInstruction *)cursor)->setBranchCondition(TR::InstOpCode::COND_BCR);
-   ((TR_S390RegInstruction *)cursor)->setJITExit();
+   ((TR::S390RegInstruction *)cursor)->setBranchCondition(TR::InstOpCode::COND_BCR);
+   ((TR::S390RegInstruction *)cursor)->setJITExit();
    }
 
 void TR_S390SystemLinkage::notifyHasalloca()
@@ -2562,7 +2562,7 @@ void OMR::Z::Linkage::replaceCallWithJumpInstruction(TR::Instruction *callInstru
 
    TR::Instruction *replacementInst =0 ;
 
-   replacementInst = new (self()->trHeapMemory()) TR_S390RILInstruction(TR::InstOpCode::BRCL, node, (uint32_t)0xf, callSymbol, callSymRef, self()->cg());
+   replacementInst = new (self()->trHeapMemory()) TR::S390RILInstruction(TR::InstOpCode::BRCL, node, (uint32_t)0xf, callSymbol, callSymRef, self()->cg());
 
    if(self()->comp()->getOption(TR_TraceCG))
       traceMsg(self()->comp(), "Replacing instruction %p to a jump %p !\n",callInstruction, replacementInst);
@@ -2573,9 +2573,9 @@ void OMR::Z::Linkage::replaceCallWithJumpInstruction(TR::Instruction *callInstru
    }
 
 
-bool OMR::Z::Linkage::canDataTypeBePassedByReference(TR::DataTypes type) { return false; }
+bool OMR::Z::Linkage::canDataTypeBePassedByReference(TR::DataType type) { return false; }
 
-bool TR_S390zLinuxSystemLinkage::canDataTypeBePassedByReference(TR::DataTypes type)
+bool TR_S390zLinuxSystemLinkage::canDataTypeBePassedByReference(TR::DataType type)
    {
 
    if (type == TR::Aggregate)
@@ -2598,7 +2598,7 @@ bool TR_S390zLinuxSystemLinkage::isSymbolPassedByReference(TR::Symbol *sym)
    int32_t symSize = sym->getSize();
    TR_ASSERT(0, "should not reach here due to folding of getDataTypeOfAggregateMember()");
 
-   TR::DataTypes aggrMemberDataType = TR::NoType;
+   TR::DataType aggrMemberDataType = TR::NoType;
    bool isVectorAggregate = (TR::DataType(aggrMemberDataType).isVector() && cg()->getSupportsVectorRegisters());
 
    if ((symSize > gprSize) && !(gprSize == 4 && symSize == 8) && !isVectorAggregate)
@@ -2653,7 +2653,7 @@ TR_S390zOSSystemLinkage::calculateCallDescriptorFlags(TR::Node *callNode)
    // Bits 3-7 inclusive
    //
 
-   TR::DataTypes dataType;
+   TR::DataType dataType;
    TR::ILOpCodes opcode;
    int32_t aggregateLength = 0;
 
@@ -2736,7 +2736,7 @@ TR_S390zOSSystemLinkage::calculateCallDescriptorFlags(TR::Node *callNode)
    for (int32_t i = firstArgumentChild; (i <= to) && !done; i++, parmCount++)
       {
       TR::Node *child = callNode->getChild(i);
-      TR::DataTypes dataType = child->getDataType();
+      TR::DataType dataType = child->getDataType();
       TR::SymbolReference *parmSymRef = child->getOpCode().hasSymbolReference() ? child->getSymbolReference() : NULL;
       int32_t argSize = 0;
 

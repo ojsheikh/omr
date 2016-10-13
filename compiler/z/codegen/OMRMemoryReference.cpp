@@ -2669,7 +2669,7 @@ OMR::Z::MemoryReference::canUseTargetRegAsScratchReg (TR::Instruction * instr)
            {
            TR::RealRegister * base  = (memref->getBaseRegister() ? toRealRegister(memref->getBaseRegister()) : 0);
            TR::RealRegister * index = (memref->getIndexRegister() ? toRealRegister(memref->getIndexRegister()) : 0);
-           TR::RealRegister * targetReg = (TR::RealRegister * )((TR_S390RegInstruction *)instr)->getRegisterOperand(1);
+           TR::RealRegister * targetReg = (TR::RealRegister * )((TR::S390RegInstruction *)instr)->getRegisterOperand(1);
            if ( targetReg != base && targetReg != index && targetReg->getRegisterNumber() != TR::RealRegister::GPR0)
               return true;
            else
@@ -3109,7 +3109,7 @@ OMR::Z::MemoryReference::generateBinaryEncoding(uint8_t * cursor, TR::CodeGenera
          }
       else if (TR::MemoryReference::canUseTargetRegAsScratchReg(instr))
          {
-         scratchReg = (TR::RealRegister * )((TR_S390RegInstruction *)instr)->getRegisterOperand(1);
+         scratchReg = (TR::RealRegister * )((TR::S390RegInstruction *)instr)->getRegisterOperand(1);
          spillNeeded = false;
          }
       else
@@ -3510,7 +3510,7 @@ OMR::Z::MemoryReference::generateBinaryEncodingTouchUpForLongDisp(uint8_t *curso
       }
    else if (TR::MemoryReference::canUseTargetRegAsScratchReg(instr))
       {
-      scratchReg = (TR::RealRegister * )((TR_S390RegInstruction *)instr)->getRegisterOperand(1);
+      scratchReg = (TR::RealRegister * )((TR::S390RegInstruction *)instr)->getRegisterOperand(1);
       spillNeeded = false;
       }
    else
@@ -3650,7 +3650,7 @@ generateS390MemoryReference(TR::CodeGenerator * cg)
    }
 
 TR::MemoryReference *
-generateS390MemoryReference(int32_t iValue, TR::DataTypes type, TR::CodeGenerator * cg, TR::Register * treg, TR::Node *node)
+generateS390MemoryReference(int32_t iValue, TR::DataType type, TR::CodeGenerator * cg, TR::Register * treg, TR::Node *node)
    {
    TR_S390ConstantDataSnippet * targetsnippet = cg->findOrCreate4ByteConstant(node, iValue);
 
@@ -3658,14 +3658,14 @@ generateS390MemoryReference(int32_t iValue, TR::DataTypes type, TR::CodeGenerato
    }
 
 TR::MemoryReference *
-generateS390MemoryReference(int64_t iValue, TR::DataTypes type, TR::CodeGenerator * cg, TR::Register * treg, TR::Node *node)
+generateS390MemoryReference(int64_t iValue, TR::DataType type, TR::CodeGenerator * cg, TR::Register * treg, TR::Node *node)
    {
    TR_S390ConstantDataSnippet * targetsnippet = cg->findOrCreate8ByteConstant(node, iValue);
    return generateS390MemoryReference(targetsnippet, cg, treg, node);
    }
 
 TR::MemoryReference *
-generateS390MemoryReference(float fValue, TR::DataTypes type, TR::CodeGenerator * cg, TR::Node * node)
+generateS390MemoryReference(float fValue, TR::DataType type, TR::CodeGenerator * cg, TR::Node * node)
    {
    union
       {
@@ -3678,7 +3678,7 @@ generateS390MemoryReference(float fValue, TR::DataTypes type, TR::CodeGenerator 
    }
 
 TR::MemoryReference *
-generateS390MemoryReference(double dValue, TR::DataTypes type, TR::CodeGenerator * cg, TR::Node * node)
+generateS390MemoryReference(double dValue, TR::DataType type, TR::CodeGenerator * cg, TR::Node * node)
    {
    union
       {

@@ -85,10 +85,10 @@ public:
    static TR::Symbol * create(AllocatorType);
 
    template <typename AllocatorType>
-   static TR::Symbol * create(AllocatorType, TR::DataTypes);
+   static TR::Symbol * create(AllocatorType, TR::DataType);
 
    template <typename AllocatorType>
-   static TR::Symbol * create(AllocatorType, TR::DataTypes, uint32_t);
+   static TR::Symbol * create(AllocatorType, TR::DataType, uint32_t);
 
 protected:
 
@@ -100,7 +100,7 @@ protected:
       _name(0),
       _flags(0),
       _flags2(0),
-      _sideTableIndex(0),
+      _localIndex(0),
       _restrictedRegisterNumber(-1)
    { }
 
@@ -108,13 +108,13 @@ protected:
     * Create symbol of specified data type, inferring size
     * from type.
     */
-   Symbol(TR::DataTypes d);
+   Symbol(TR::DataType d);
 
    /**
     * Create symbol of specified data type, inferring size
     * from type.
     */
-   Symbol(TR::DataTypes d, uint32_t size);
+   Symbol(TR::DataType d, uint32_t size);
 
 public:
    /**
@@ -177,11 +177,11 @@ public:
 
    bool isReferenced();
 
-   static uint32_t convertTypeToSize(TR::DataTypes dt);
+   static uint32_t convertTypeToSize(TR::DataType dt);
 
-   static uint32_t convertTypeToNumberOfSlots(TR::DataTypes dt);
+   static uint32_t convertTypeToNumberOfSlots(TR::DataType dt);
 
-   static TR::DataTypes convertSigCharToType(char sigChar);
+   static TR::DataType convertSigCharToType(char sigChar);
 
    /**
     * Field functions
@@ -198,8 +198,8 @@ public:
    uint32_t getFlags2()                     { return _flags2.getValue(); }
    void setFlagValue(uint32_t v, bool b)    { _flags.setValue(v, b); }
 
-   uint16_t getSideTableIndex()             { return _sideTableIndex; }
-   uint16_t setSideTableIndex(uint16_t sti) { return (_sideTableIndex = sti); }
+   uint16_t getLocalIndex()                 { return _localIndex; }
+   uint16_t setLocalIndex(uint16_t li)      { return (_localIndex = li); }
 
    uint8_t getRestrictedRegisterNumber()    { return _restrictedRegisterNumber; }
 
@@ -207,8 +207,8 @@ public:
     * Flag functions
     */
 
-   void          setDataType(TR::DataTypes dt);
-   TR::DataTypes getDataType() { return (TR::DataTypes)_flags.getValue(DataTypeMask);}
+   void          setDataType(TR::DataType dt);
+   TR::DataType  getDataType() { return (TR::DataTypes)_flags.getValue(DataTypeMask);}
    TR::DataType  getType();
 
    int32_t getKind()             { return _flags.getValue(KindMask);}
@@ -432,6 +432,9 @@ public:
    void setNamedShadowSymbol();
    bool isNamedShadowSymbol();
 
+   void setImmutableField() { _flags2.set(ImmutableField); }
+   bool isImmutableField()  { return _flags2.testAny(ImmutableField); }
+
    /**
     * Enum values for _flags field.
     */
@@ -556,6 +559,7 @@ public:
       RealRegister              = 0x00000080, // RegisterSymbol is machine real register
       UnsafeShadow              = 0x00000100,
       NamedShadow               = 0x00000200,
+      ImmutableField            = 0x00000400,
       };
 
 protected:
@@ -564,7 +568,7 @@ protected:
    const char *  _name;
    flags32_t     _flags;
    flags32_t     _flags2;
-   uint16_t      _sideTableIndex;
+   uint16_t      _localIndex;
    uint8_t       _restrictedRegisterNumber;
 
 
@@ -579,10 +583,10 @@ public:
    static TR::Symbol * createShadow(AllocatorType m);
 
    template <typename AllocatorType>
-   static TR::Symbol * createShadow(AllocatorType m, TR::DataTypes d);
+   static TR::Symbol * createShadow(AllocatorType m, TR::DataType d);
 
    template <typename AllocatorType>
-   static TR::Symbol * createShadow(AllocatorType m, TR::DataTypes d, uint32_t );
+   static TR::Symbol * createShadow(AllocatorType m, TR::DataType d, uint32_t );
 
    /**
     * TR_NamedShadowSymbol
@@ -594,7 +598,7 @@ public:
 public:
 
    template <typename AllocatorType>
-   static TR::Symbol * createNamedShadow(AllocatorType m, TR::DataTypes d, uint32_t s, char *name = NULL);
+   static TR::Symbol * createNamedShadow(AllocatorType m, TR::DataType d, uint32_t s, char *name = NULL);
 
    /** @} */
 

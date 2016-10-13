@@ -79,12 +79,12 @@ typedef uint32_t    ncount_t;
 typedef uint32_t    rcount_t;
 #define MAX_RCOUNT  UINT_MAX
 
-/// Node side table indexes
+/// Node local indexes
 ///
 typedef uint32_t    scount_t;
 #define MAX_SCOUNT  UINT_MAX
 #define SCOUNT_HIGH_BIT          0x80000000
-#define NULL_USEDEF_SYMBOL_INDEX 0xFFFF  //TODO: should be 0xFFFF until we change the date type of _sideTableIndex in Symbol.hpp
+#define NULL_USEDEF_SYMBOL_INDEX 0xFFFF  //TODO: should be 0xFFFF until we change the date type of _localIndex in Symbol.hpp
 
 /// Visit counts
 ///
@@ -164,7 +164,6 @@ public:
    static TR::Node *copy(TR::Node *, int32_t numChildren);
 
    static TR::Node *recreate(TR::Node *originalNode, TR::ILOpCodes op);
-   static TR::Node *recreateAndCopyValidProperties(TR::Node *originalNode, TR::ILOpCodes op);
    static TR::Node *recreateWithSymRefAndCopyValidProperties(TR::Node *originalNode, TR::ILOpCodes op, TR::SymbolReference *newSymRef);
 
    // create methods from everywhere other than the ilGenerator need
@@ -308,17 +307,17 @@ public:
    static TR::Node *aconst(TR::Node *originatingByteCodeNode, uintptrj_t val, uint8_t precision);
    static TR::Node *aconst(uintptrj_t val);
 
-   static TR::Node *createConstZeroValue(TR::Node *originatingByteCodeNode, TR::DataTypes dt);
-   static TR::Node *createConstOne(TR::Node *originatingByteCodeNode, TR::DataTypes dt);
-   static TR::Node *createConstDead(TR::Node *originatingByteCodeNode, TR::DataTypes dt, intptrj_t extraData=0);
+   static TR::Node *createConstZeroValue(TR::Node *originatingByteCodeNode, TR::DataType dt);
+   static TR::Node *createConstOne(TR::Node *originatingByteCodeNode, TR::DataType dt);
+   static TR::Node *createConstDead(TR::Node *originatingByteCodeNode, TR::DataType dt, intptrj_t extraData=0);
 
    static TR::Node *createCompressedRefsAnchor(TR::Node *firstChild);
 
    static TR::Node *createAddConstantToAddress(TR::Node * addr, intptr_t value, TR::Node * parent = NULL);
    static TR::Node *createLiteralPoolAddress(TR::Node *node, size_t offset);
 
-   static TR::Node *createVectorConst(TR::Node *originatingByteCodeNode, TR::DataTypes dt);
-   static TR::Node *createVectorConversion(TR::Node *src, TR::DataTypes trgType);
+   static TR::Node *createVectorConst(TR::Node *originatingByteCodeNode, TR::DataType dt);
+   static TR::Node *createVectorConversion(TR::Node *src, TR::DataType trgType);
 
 /**
  * Private constructor helpers
@@ -678,13 +677,13 @@ public:
    rcount_t        recursivelyDecReferenceCount();
    void            recursivelyDecReferenceCountFromCodeGen();
 
-   inline scount_t getSideTableIndex();
-   inline scount_t setSideTableIndex(scount_t sti);
-   inline scount_t incSideTableIndex();
-   inline scount_t decSideTableIndex();
+   inline scount_t getLocalIndex();
+   inline scount_t setLocalIndex(scount_t li);
+   inline scount_t incLocalIndex();
+   inline scount_t decLocalIndex();
 
    inline scount_t getFutureUseCount();
-   inline scount_t setFutureUseCount(scount_t sti);
+   inline scount_t setFutureUseCount(scount_t li);
    inline scount_t incFutureUseCount();
    inline scount_t decFutureUseCount();
 
@@ -786,8 +785,8 @@ public:
     */
    void                    freeExtensionIfExists();
 
-   TR::DataTypes           getArrayCopyElementType();
-   void                    setArrayCopyElementType(TR::DataTypes type);
+   TR::DataType           getArrayCopyElementType();
+   void                    setArrayCopyElementType(TR::DataType type);
 
    TR_OpaqueClassBlock *   getArrayStoreClassInNode();
    void                    setArrayStoreClassInNode(TR_OpaqueClassBlock *o);
@@ -838,6 +837,8 @@ public:
    void *                  getMonitorInfo();
    void *                  setMonitorInfo(void *info);
 
+   TR::ILOpCodes           getOverflowCHKInfo();
+   TR::ILOpCodes           setOverflowCHKInfo(TR::ILOpCodes op);
    /**
     * UnionBase functions end
     */
@@ -865,9 +866,9 @@ public:
    TR::AutomaticSymbol * getPinningArrayPointer();
    TR::AutomaticSymbol * setPinningArrayPointer(TR::AutomaticSymbol *s);
 
-   inline TR::DataTypes   getDataType();
-   inline TR::DataTypes   setDataType(TR::DataTypes dt);
-   TR::DataTypes          computeDataType();
+   inline TR::DataType   getDataType();
+   inline TR::DataType   setDataType(TR::DataType dt);
+   TR::DataType          computeDataType();
 
    /**
     * UnionPropertyA functions end
@@ -1568,7 +1569,6 @@ protected:
    bool hasPinningArrayPointer();
    bool hasDataType();
 
-
 // Protected inner classes and structs.
 protected:
 
@@ -1659,7 +1659,7 @@ protected:
       TR::Block             *_block;                        ///< hasBlock()
       int32_t                _arrayStride;                  ///< hasArrayStride()
       TR::AutomaticSymbol  *_pinningArrayPointer;          ///< hasPinningArrayPointer()
-      TR::DataTypes          _dataType;                     ///< hasDataType()
+      TR::DataTypes         _dataType;                     ///< hasDataType()  TODO: Change to TR::DataType once all target compilers support it
 
       UnionPropertyA()
          {
@@ -1994,7 +1994,6 @@ protected:
 
       // zEmulator only?
       requiresConditionCodes                = 0x80000000,
-
       };
 
    };

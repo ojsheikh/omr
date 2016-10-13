@@ -50,7 +50,7 @@ template <class T> class ListAppender;
 namespace OMR
 {
 
-typedef TR::ILOpCodes (*OpCodeMapper)(TR::DataTypes);
+typedef TR::ILOpCodes (*OpCodeMapper)(TR::DataType);
 
 
 class IlBuilder : public TR::IlInjector
@@ -100,7 +100,8 @@ public:
       _connectedTrees(false),
       _comesBack(true),
       _haveReplayName(false),
-      _rpILCpp(0)
+      _rpILCpp(0),
+      _isHandler(false)
       {
       }
    IlBuilder(TR::IlBuilder *source);
@@ -164,6 +165,7 @@ public:
    TR::IlValue *LessThan(TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *GreaterThan(TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *ConvertTo(TR::IlType *t, TR::IlValue *v);
+   TR::IlValue *AddWithOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlValue *right);
 
    // memory
    TR::IlValue *CreateLocalArray(int32_t numElements, TR::IlType *elementType);
@@ -294,6 +296,7 @@ protected:
    bool                          _partOfSequence;
    bool                          _connectedTrees;
    bool                          _comesBack;
+   bool                          _isHandler;
 
    bool                          _haveReplayName;
    std::fstream                * _rpILCpp;
@@ -304,7 +307,7 @@ protected:
 
    TR::IlValue *lookupSymbol(const char *name);
    void defineSymbol(const char *name, TR::IlValue *v);
-   TR::IlValue *newValue(TR::DataTypes dt);
+   TR::IlValue *newValue(TR::DataType dt);
    TR::IlValue *newValue(TR::IlType *dt);
    void defineValue(const char *name, TR::IlType *dt);
 
@@ -313,7 +316,7 @@ protected:
    void indirectStoreNode(TR::Node *addr, TR::Node *v);
    TR::IlValue *indirectLoadNode(TR::IlType *dt, TR::Node *addr, bool isVectorLoad=false);
 
-   TR::Node *zero(TR::DataTypes dt);
+   TR::Node *zero(TR::DataType dt);
    TR::Node *zero(TR::IlType *dt);
    TR::Node *zeroNodeForValue(TR::IlValue *v);
    TR::IlValue *zeroForValue(TR::IlValue *v);
@@ -321,6 +324,7 @@ protected:
    TR::IlValue *unaryOp(TR::ILOpCodes op, TR::IlValue *v);
    void doVectorConversions(TR::Node **leftPtr, TR::Node **rightPtr);
    TR::IlValue *binaryOpFromNodes(TR::ILOpCodes op, TR::Node *leftNode, TR::Node *rightNode);
+   TR::Node *binaryOpNodeFromNodes(TR::ILOpCodes op, TR::Node *leftNode, TR::Node *rightNode);
    TR::IlValue *binaryOpFromOpMap(OpCodeMapper mapOp, TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *binaryOpFromOpCode(TR::ILOpCodes op, TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *compareOp(TR_ComparisonTypes ct, bool needUnsigned, TR::IlValue *left, TR::IlValue *right);
@@ -353,6 +357,10 @@ protected:
    virtual bool connectTrees(uint32_t *currentBlock) { return connectTrees(); }
 
    virtual bool connectTrees();
+
+   TR::Node *genOverflowCHKTreeTop(TR::Node *operationNode);
+   void appendExceptionHandler(TR::Block *blockThrowsException, TR::IlBuilder **builder, uint32_t catchType);
+   virtual void setHandlerInfo(uint32_t catchType);
    };
 
 } // namespace OMR

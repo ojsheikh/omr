@@ -134,7 +134,7 @@ void TR_OSRDefInfo::performFurtherAnalysis(AuxiliaryData &aux)
             int32_t slot = defSymRef->getCPIndex();
             if (slot >= methodSymbol->getFirstJitTempIndex()) continue;
             int32_t symRefNum = defSymRef->getReferenceNumber();
-            TR::DataTypes dt = defSymRef->getSymbol()->getDataType();
+            TR::DataType dt = defSymRef->getSymbol()->getDataType();
             bool takesTwoSlots = dt == TR::Int64 || dt == TR::Double;
 
             if (methodSymbol->sharesStackSlot(defSymRef))
@@ -183,7 +183,7 @@ void TR_OSRDefInfo::addSharingInfo(AuxiliaryData &aux)
       bool isTwoSlotSymRefAtThisSlot = false;
       for (TR::SymbolReference* symRef = ppsIt.getFirst(); symRef; symRef = ppsIt.getNext())
          {
-         TR::DataTypes dt = symRef->getSymbol()->getDataType();
+         TR::DataType dt = symRef->getSymbol()->getDataType();
          bool takesTwoSlots = dt == TR::Int64 || dt == TR::Double;
          if (takesTwoSlots)
             {
@@ -203,10 +203,10 @@ void TR_OSRDefInfo::addSharingInfo(AuxiliaryData &aux)
 
          for (TR::SymbolReference* symRef = ppsIt.getFirst(); symRef; symRef = ppsIt.getNext())
             {
-            uint16_t symIndex = symRef->getSymbol()->getSideTableIndex();
+            uint16_t symIndex = symRef->getSymbol()->getLocalIndex();
             const TR_UseDefInfo::BitVector &defs = aux._defsForSymbol[symIndex];
             unionDef |= defs;
-            TR::DataTypes dt = symRef->getSymbol()->getDataType();
+            TR::DataType dt = symRef->getSymbol()->getDataType();
             bool takesTwoSlots = dt == TR::Int64 || dt == TR::Double;
             if (takesTwoSlots)
                twoSlotUnionDef |= defs;
@@ -216,7 +216,7 @@ void TR_OSRDefInfo::addSharingInfo(AuxiliaryData &aux)
 
          for (TR::SymbolReference* symRef = ppsIt.getFirst(); symRef; symRef = ppsIt.getNext())
             {
-            uint16_t symIndex = symRef->getSymbol()->getSideTableIndex();
+            uint16_t symIndex = symRef->getSymbol()->getLocalIndex();
             // is assignment okay here, before it was reference only?
             aux._defsForSymbol[symIndex] = unionDef;
 
@@ -226,11 +226,11 @@ void TR_OSRDefInfo::addSharingInfo(AuxiliaryData &aux)
                ListIterator<TR::SymbolReference> prevppsIt(&prevppsList);
                for (TR::SymbolReference* prevSymRef = prevppsIt.getFirst(); prevSymRef; prevSymRef = prevppsIt.getNext())
                   {
-                  TR::DataTypes prevdt = prevSymRef->getSymbol()->getDataType();
+                  TR::DataType prevdt = prevSymRef->getSymbol()->getDataType();
                   bool doesPrevTakesTwoSlots = prevdt == TR::Int64 || prevdt == TR::Double;
                   if (doesPrevTakesTwoSlots)
                      {
-                     uint16_t prevSymIndex = prevSymRef->getSymbol()->getSideTableIndex();
+                     uint16_t prevSymIndex = prevSymRef->getSymbol()->getLocalIndex();
                      aux._defsForSymbol[prevSymIndex] |= unionDef;
                      }
                   }
@@ -258,7 +258,7 @@ void TR_OSRDefInfo::addSharingInfo(AuxiliaryData &aux)
       bool isTwoSlotSymRefAtThisSlot = false;
       for (TR::SymbolReference* symRef = autosIt.getFirst(); symRef; symRef = autosIt.getNext())
          {
-         TR::DataTypes dt = symRef->getSymbol()->getDataType();
+         TR::DataType dt = symRef->getSymbol()->getDataType();
          bool takesTwoSlots = dt == TR::Int64 || dt == TR::Double;
          if (takesTwoSlots)
             {
@@ -279,10 +279,10 @@ void TR_OSRDefInfo::addSharingInfo(AuxiliaryData &aux)
          twoSlotUnionDef.GrowTo(getBitVectorSize());
          for (TR::SymbolReference* symRef = autosIt.getFirst(); symRef; symRef = autosIt.getNext())
             {
-            uint16_t symIndex = symRef->getSymbol()->getSideTableIndex();
+            uint16_t symIndex = symRef->getSymbol()->getLocalIndex();
             const TR_UseDefInfo::BitVector &defs = aux._defsForSymbol[symIndex];
             unionDef |= defs;
-            TR::DataTypes dt = symRef->getSymbol()->getDataType();
+            TR::DataType dt = symRef->getSymbol()->getDataType();
             bool takesTwoSlots = dt == TR::Int64 || dt == TR::Double;
             if (takesTwoSlots)
                twoSlotUnionDef |= defs;
@@ -292,7 +292,7 @@ void TR_OSRDefInfo::addSharingInfo(AuxiliaryData &aux)
 
          for (TR::SymbolReference* symRef = autosIt.getFirst(); symRef; symRef = autosIt.getNext())
             {
-            uint16_t symIndex = symRef->getSymbol()->getSideTableIndex();
+            uint16_t symIndex = symRef->getSymbol()->getLocalIndex();
             // is assignment okay here, before it was reference only?
             aux._defsForSymbol[symIndex] = unionDef;
 
@@ -302,11 +302,11 @@ void TR_OSRDefInfo::addSharingInfo(AuxiliaryData &aux)
                ListIterator<TR::SymbolReference> prevautosIt(&prevautosList);
                for (TR::SymbolReference* prevSymRef = prevautosIt.getFirst(); prevSymRef; prevSymRef = prevautosIt.getNext())
                   {
-                  TR::DataTypes prevdt = prevSymRef->getSymbol()->getDataType();
+                  TR::DataType prevdt = prevSymRef->getSymbol()->getDataType();
                   bool doesPrevTakesTwoSlots = prevdt == TR::Int64 || prevdt == TR::Double;
                   if (doesPrevTakesTwoSlots)
                      {
-                     uint16_t prevSymIndex = prevSymRef->getSymbol()->getSideTableIndex();
+                     uint16_t prevSymIndex = prevSymRef->getSymbol()->getLocalIndex();
                      aux._defsForSymbol[prevSymIndex] |= unionDef;
                      }
                   }
@@ -439,12 +439,12 @@ void TR_OSRDefInfo::buildOSRDefs(TR::Node *node, void *vanalysisInfo, TR_OSRPoin
       buildOSRDefs(node->getChild(i), analysisInfo, osrPoint, node, aux);
       }
 
-   scount_t expandedNodeIndex = node->getSideTableIndex(); //node->getUseDefIndex();
+   scount_t expandedNodeIndex = node->getLocalIndex(); //node->getUseDefIndex();
    if (expandedNodeIndex != NULL_USEDEF_SYMBOL_INDEX && expandedNodeIndex != 0)
       {
       TR::SymbolReference *symRef = node->getSymbolReference();
       TR::Symbol *sym = symRef->getSymbol();
-      uint16_t symIndex = sym->getSideTableIndex();
+      uint16_t symIndex = sym->getLocalIndex();
       TR_UseDefInfo::BitVector const &defsForSymbol = aux._defsForSymbol[symIndex];
       if (!defsForSymbol.IsZero() &&
          isExpandedDefIndex(expandedNodeIndex) &&
@@ -743,7 +743,7 @@ int32_t TR_OSRLiveRangeAnalysis::perform()
              !nextSymRef->getSymbol()->holdsMonitoredObject())
             {
             liveLocalIndexToSymRefNumberMap[nextSymRef->getSymbol()->castToAutoSymbol()->getLiveLocalIndex()] = nextSymRef->getReferenceNumber();
-            nextSymRef->getSymbol()->setSideTableIndex(0);
+            nextSymRef->getSymbol()->setLocalIndex(0);
             if (nextSymRef->getReferenceNumber() > maxSymRefNumber)
                maxSymRefNumber = nextSymRef->getReferenceNumber();
             }
@@ -764,7 +764,7 @@ int32_t TR_OSRLiveRangeAnalysis::perform()
             {
             liveLocalIndexToSymRefNumberMap[nextSymRef->getSymbol()->castToAutoSymbol()->getLiveLocalIndex()] = nextSymRef->getReferenceNumber();
             _pendingPushVars->set(nextSymRef->getSymbol()->castToAutoSymbol()->getLiveLocalIndex());
-            nextSymRef->getSymbol()->setSideTableIndex(0);
+            nextSymRef->getSymbol()->setLocalIndex(0);
             if (nextSymRef->getReferenceNumber() > maxSymRefNumber)
                maxSymRefNumber = nextSymRef->getReferenceNumber();
             }
@@ -854,7 +854,7 @@ void TR_OSRLiveRangeAnalysis::maintainLiveness(TR::Node *node,
    if (node->getVisitCount() != visitCount)
       {
       node->setVisitCount(visitCount);
-      node->setSideTableIndex(node->getReferenceCount());
+      node->setLocalIndex(node->getReferenceCount());
       }
 
    if (comp()->getOption(TR_TraceOSR))
@@ -873,7 +873,7 @@ void TR_OSRLiveRangeAnalysis::maintainLiveness(TR::Node *node,
          // This local is killed only if the live range of any loads of this symbol do not overlap
          // with this store.
          //
-         if (local->getSideTableIndex() == 0)
+         if (local->getLocalIndex() == 0)
             {
             if (_pendingPushVars->get(localIndex))
                {
@@ -887,7 +887,7 @@ void TR_OSRLiveRangeAnalysis::maintainLiveness(TR::Node *node,
                   if (node->getFirstChild()->getVisitCount() != visitCount)
                      {
                      node->getFirstChild()->setVisitCount(visitCount);
-                     node->getFirstChild()->setSideTableIndex(node->getFirstChild()->getReferenceCount());
+                     node->getFirstChild()->setLocalIndex(node->getFirstChild()->getReferenceCount());
 
                      if (node->getFirstChild()->getOpCode().hasSymbolReference() &&
                          node->getFirstChild()->getSymbolReference()->getSymbol()->isAuto())
@@ -897,7 +897,7 @@ void TR_OSRLiveRangeAnalysis::maintainLiveness(TR::Node *node,
                            {
                            int32_t rhsLocalIndex = rhsLocal->getLiveLocalIndex();
                            TR_ASSERT(rhsLocalIndex >= 0, "bad local index: %d\n", rhsLocalIndex);
-                           rhsLocal->setSideTableIndex(rhsLocal->getSideTableIndex() + node->getFirstChild()->getReferenceCount());
+                           rhsLocal->setLocalIndex(rhsLocal->getLocalIndex() + node->getFirstChild()->getReferenceCount());
                            }
                          }
                       }
@@ -935,9 +935,9 @@ void TR_OSRLiveRangeAnalysis::maintainLiveness(TR::Node *node,
 
          // First visit to this node.
          //
-         if (node->getSideTableIndex() == node->getReferenceCount())
+         if (node->getLocalIndex() == node->getReferenceCount())
             {
-            local->setSideTableIndex(local->getSideTableIndex() + node->getReferenceCount());
+            local->setLocalIndex(local->getLocalIndex() + node->getReferenceCount());
             }
 
          if (0 && _pendingPushVars->get(localIndex))
@@ -962,7 +962,7 @@ void TR_OSRLiveRangeAnalysis::maintainLiveness(TR::Node *node,
          static const char *disallowOSRPPS3 = feGetEnv("TR_DisallowOSRPPS3");
 
          if ((!disallowOSRPPS3 || !_pendingPushVars->get(localIndex)) &&
-             ((node->getSideTableIndex() == 1 || node->getOpCodeValue() == TR::loadaddr) && !liveVars->isSet(localIndex)))
+             ((node->getLocalIndex() == 1 || node->getOpCodeValue() == TR::loadaddr) && !liveVars->isSet(localIndex)))
             {
             // First evaluation point of this node or loadaddr.
             //
@@ -974,13 +974,13 @@ void TR_OSRLiveRangeAnalysis::maintainLiveness(TR::Node *node,
                }
             }
 
-         local->setSideTableIndex(local->getSideTableIndex()-1);
-         node->setSideTableIndex(node->getSideTableIndex()-1);
+         local->setLocalIndex(local->getLocalIndex()-1);
+         node->setLocalIndex(node->getLocalIndex()-1);
          return;
          }
       }
    else if (node->exceptionsRaised() &&
-           (node->getSideTableIndex() <= 1))
+           (node->getLocalIndex() <= 1))
       {
       TR::Block *succ;
       for (auto edge = block->getExceptionSuccessors().begin(); edge != block->getExceptionSuccessors().end(); ++edge)
@@ -990,14 +990,14 @@ void TR_OSRLiveRangeAnalysis::maintainLiveness(TR::Node *node,
          }
       }
 
-   if (node->getSideTableIndex() != 0)
+   if (node->getLocalIndex() != 0)
       {
-      node->setSideTableIndex(node->getSideTableIndex()-1);
+      node->setLocalIndex(node->getLocalIndex()-1);
       }
 
    // This is not the first evaluation point of this node.
    //
-   if (node->getSideTableIndex() > 0)
+   if (node->getLocalIndex() > 0)
       return;
 
    for (int32_t i = node->getNumChildren()-1; i >= 0; --i)
