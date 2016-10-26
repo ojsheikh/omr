@@ -56,7 +56,7 @@
 #include "optimizer/Optimizer.hpp"               // for Optimizer
 #include "optimizer/Structure.hpp"
 #include "optimizer/TranslateTable.hpp"
-#include "optimizer/VPConstraint.hpp"            // for TR_VPConstraint
+#include "optimizer/VPConstraint.hpp"            // for TR::VPConstraint
 #include "ras/Debug.hpp"                         // for TR_DebugBase
 
 #define OPT_DETAILS "O^O LOOP TRANSFORMATION: "
@@ -980,8 +980,8 @@ TR_LoopReducer::generateArraycopy(TR_InductionVariable * indVar, TR::Block * loo
    if (storeNode->getType().isBCD() &&
        !(storeSize == 1 || storeSize == 2 || storeSize == 4 || storeSize == 8))
       {
-      dumpOptDetails(comp(), "arraycopy storeNode %p is a BCD type (%d) and the storeSize (%d) is not 1,2,4 or 8 so do not reduce arraycopy\n",
-         storeNode,storeNode->getDataType(),storeSize);
+      dumpOptDetails(comp(), "arraycopy storeNode %p is a BCD type (%s) and the storeSize (%d) is not 1,2,4 or 8 so do not reduce arraycopy\n",
+         storeNode,storeNode->getDataType().toString(),storeSize);
       return false;
       }
 #endif

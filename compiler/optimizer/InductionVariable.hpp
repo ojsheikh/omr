@@ -48,9 +48,9 @@ class TR_BlockStructure;
 class TR_Dominators;
 class TR_RegionStructure;
 class TR_Structure;
-class TR_VPConstraint;
-class TR_VPIntRange;
-class TR_VPLongRange;
+namespace TR { class VPConstraint; }
+namespace TR { class VPIntRange; }
+namespace TR { class VPLongRange; }
 namespace TR { class AutomaticSymbol; }
 namespace TR { class NodeChecklist; }
 namespace TR { class Optimizer; }
@@ -193,7 +193,7 @@ class TR_LoopStrider : public TR_LoopTransformer
    void detectLoopsForIndVarConversion(TR_Structure *, TR::NodeChecklist &);
    void extendIVsOnLoopEntry(const TR::list<std::pair<int32_t, int32_t> > &, TR::Block *);
    void truncateIVsOnLoopExit(const TR::list<std::pair<int32_t, int32_t> > &, TR_RegionStructure *);
-   void convertIV(TR::TreeTop *, int32_t, int32_t, TR::ILOpCodes);
+   void convertIV(TR::Node *, TR::TreeTop *, int32_t, int32_t, TR::ILOpCodes);
    void createConstraintsForNewInductionVariable(TR_Structure *, TR::SymbolReference *, TR::SymbolReference *);
    bool checkExpressionForInductionVariable(TR::Node *);
    bool checkStoreOfIndVar(TR::Node *);
@@ -317,8 +317,8 @@ private:
    TR::Node* genLoad(TR::Node* node, TR::SymbolReference* symRef, bool isInternalPointer);
    void examineOpCodesForInductionVariableUse(TR::Node* node, TR::Node* parent, int32_t &childNum, int32_t &index, TR::Node* originalNode, TR::Node* replacingNode, TR::Node* linearTerm, TR::Node* mulTerm, TR::SymbolReference **newSymbolReference, TR::Block* loopInvariantBlock, TR::AutomaticSymbol* pinningArrayPointer, int64_t differenceInAdditiveConstants, bool &isInternalPointer, bool &downcastNode, bool &usingAladd);
    void changeBranchFromIntToLong(TR::Node* branch);
-   TR_VPLongRange* genVPLongRange(TR_VPConstraint* cons, int64_t coeff, int64_t additive);
-   TR_VPIntRange* genVPIntRange(TR_VPConstraint* cons, int64_t coeff, int64_t additive);
+   TR::VPLongRange* genVPLongRange(TR::VPConstraint* cons, int64_t coeff, int64_t additive);
+   TR::VPIntRange* genVPIntRange(TR::VPConstraint* cons, int64_t coeff, int64_t additive);
    };
 
 

@@ -293,7 +293,7 @@ TR_Debug::printLoadConst(TR::Node *node, TR_PrettyPrinterString& output)
          break;
 
       default:
-         output.append(" Bad Type %d", node->getDataType());
+         output.append(" Bad Type %s", node->getDataType().toString());
          break;
       }
    }
@@ -2240,7 +2240,7 @@ TR_Debug::printVCG(TR::FILE *pOutFile, TR::Node * node, uint32_t indentation)
    }
 
 void
-TR_Debug::print(TR::FILE *pOutFile, TR_VPConstraint *info)
+TR_Debug::print(TR::FILE *pOutFile, TR::VPConstraint *info)
    {
    if (pOutFile == NULL)
       return;
@@ -2953,7 +2953,6 @@ int32_t childTypes[] =
    TR::NoType,                     // TR::arrayset
    TR::NoType,                     // TR::arraytranslate
    TR::NoType,                     // TR::arraytranslateAndTest
-   TR::NoType,                     // TR::countDigits
    TR::NoType,                     // TR::long2String
    TR::NoType,                     // TR::bitOpMem
    TR::NoType,                     // TR::bitOpMemND
@@ -3535,6 +3534,8 @@ int32_t childTypes[] =
    TR::PackedDecimal,                                        // TR::pdremSelect
 
    TR::PackedDecimal,                                        // TR::pdModifyPrecision
+
+   TR::NoType,                                               // TR::countDigits
 
    TR::PackedDecimal,                                        // TR::pd2df
    TR::PackedDecimal,                                        // TR::pd2dfAbs

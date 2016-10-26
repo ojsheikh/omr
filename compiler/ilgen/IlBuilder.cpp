@@ -673,7 +673,7 @@ TR::IlValue *
 IlBuilder::CreateLocalStruct(TR::IlType *structType)
    {
    //similar to CreateLocalArray except writing a method in StructType to get the struct size
-   uint32_t size = structType->getStructSize();
+   uint32_t size = structType->getSize();
    TR::SymbolReference *localStructSymRef = symRefTab()->createLocalPrimArray(size,
                                                                              methodSymbol(),
                                                                              8 /*FIXME: JVM-specific - byte*/);
@@ -783,7 +783,7 @@ IlBuilder::IndexAt(TR::IlType *dt, TR::IlValue *base, TR::IlValue *index)
          TR::ILOpCodes op = TR::DataType::getDataTypeConversion(indexType, TR::Int64);
          indexNode = TR::Node::create(op, 1, indexNode);
          }
-      elemSizeNode = TR::Node::lconst(TR::DataType::getSize(elemType->getPrimitiveType()));
+      elemSizeNode = TR::Node::lconst(elemType->getSize());
       addOp = TR::aladd;
       mulOp = TR::lmul;
       }
@@ -795,7 +795,7 @@ IlBuilder::IndexAt(TR::IlType *dt, TR::IlValue *base, TR::IlValue *index)
          TR::ILOpCodes op = TR::DataType::getDataTypeConversion(indexType, targetType);
          indexNode = TR::Node::create(op, 1, indexNode);
          }
-      elemSizeNode = TR::Node::iconst(TR::DataType::getSize(elemType->getPrimitiveType()));
+      elemSizeNode = TR::Node::iconst(elemType->getSize());
       addOp = TR::aiadd;
       mulOp = TR::imul;
       }
@@ -889,6 +889,17 @@ IlBuilder::ConstDouble(double value)
    storeNode(returnValue, dconstNode);
    TraceIL("IlBuilder[ %p ]::%d is ConstDouble %lf\n", this, returnValue->getCPIndex(), value);
    ILB_REPLAY("%s = %s->ConstDouble(%lf);", REPLAY_VALUE(returnValue), REPLAY_BUILDER(this), value);
+   return returnValue;
+   }
+
+TR::IlValue *
+IlBuilder::ConstAddress(void* value)
+   {
+   appendBlock();
+   TR::IlValue *returnValue = newValue(Address);
+   storeNode(returnValue, TR::Node::aconst((uintptrj_t)value));
+   TraceIL("IlBuilder[ %p ]::%d is ConstAddress %p\n", this, returnValue->getCPIndex(), value);
+   ILB_REPLAY("%s = %s->ConstAddress(%p);", REPLAY_VALUE(returnValue), REPLAY_BUILDER(this), value);
    return returnValue;
    }
 
@@ -1136,12 +1147,12 @@ IlBuilder::genOverflowCHKTreeTop(TR::Node *operationNode)
    }
 
 TR::IlValue *
-IlBuilder::AddWithOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlValue *right)
+IlBuilder::operationWithOverflow(TR::ILOpCodes op, TR::Node *leftNode, TR::Node *rightNode, TR::IlBuilder **handler)
    {
    /*
     * BB1:
     *    overflowCHK
-    *       add
+    *       operation(add/sub/mul)
     *          =>child1
     *          =>child2
     *    store
@@ -1153,9 +1164,20 @@ IlBuilder::AddWithOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlVal
     * BB3:
     *    continue
     */
-   TR::IlValue *addValue = NULL;
-   TR::Node *addNode = NULL;
+   TR::Node *operationNode = binaryOpNodeFromNodes(op, leftNode, rightNode);
+   TR::Node *overflowChkNode = genOverflowCHKTreeTop(operationNode);
 
+   TR::Block *blockWithOverflowCHK = _currentBlock;
+   TR::IlValue *resultValue = newValue(operationNode->getDataType());
+   genTreeTop(TR::Node::createStore(resultValue, operationNode));
+
+   appendExceptionHandler(blockWithOverflowCHK, handler, TR::Block::CanCatchOverflowCheck);
+   return resultValue;
+   }
+
+TR::IlValue *
+IlBuilder::AddWithOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlValue *right)
+   {
    appendBlock(); 
 
    TR::Node *leftNode = loadValue(left);
@@ -1171,18 +1193,35 @@ IlBuilder::AddWithOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlVal
          TR_ASSERT(0, "the right child type must be either TR::Int32 or TR::Int64 when the left child of Add is TR::Address\n");
       }
    else op = addOpCode(leftNode->getDataType());
-   addNode = binaryOpNodeFromNodes(op, leftNode, rightNode);
-   TR::Node *overflowChkNode = genOverflowCHKTreeTop(addNode);
 
-   TR::Block *blockWithOverflowCHK = _currentBlock;
-   addValue = newValue(addNode->getDataType());
-   genTreeTop(TR::Node::createStore(addValue, addNode));
-
-   appendExceptionHandler(blockWithOverflowCHK, handler, TR::Block::CanCatchOverflowCheck);
-
+   TR::IlValue *addValue = operationWithOverflow(op, leftNode, rightNode, handler);
    TraceIL("IlBuilder[ %p ]::%d is AddWithOverflow %d + %d\n", this, addValue->getCPIndex(), left->getCPIndex(), right->getCPIndex());
    //ILB_REPLAY("%s = %s->AddWithOverflow(%s, %s);", REPLAY_VALUE(addValue), REPLAY_BUILDER(this), REPLAY_BUILDER(*handler), REPLAY_VALUE(left), REPLAY_VALUE(right));
    return addValue;
+   }
+
+TR::IlValue *
+IlBuilder::SubWithOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlValue *right)
+   {
+   appendBlock(); 
+
+   TR::Node *leftNode = loadValue(left);
+   TR::Node *rightNode = loadValue(right);
+   TR::IlValue *subValue = operationWithOverflow(TR::ILOpCode::subtractOpCode(leftNode->getDataType()), leftNode, rightNode, handler);
+   TraceIL("IlBuilder[ %p ]::%d is SubWithOverflow %d + %d\n", this, subValue->getCPIndex(), left->getCPIndex(), right->getCPIndex());
+   return subValue;
+   }
+
+TR::IlValue *
+IlBuilder::MulWithOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlValue *right)
+   {
+   appendBlock(); 
+
+   TR::Node *leftNode = loadValue(left);
+   TR::Node *rightNode = loadValue(right);
+   TR::IlValue *mulValue = operationWithOverflow(TR::ILOpCode::multiplyOpCode(leftNode->getDataType()), leftNode, rightNode, handler);
+   TraceIL("IlBuilder[ %p ]::%d is MulWithOverflow %d + %d\n", this, mulValue->getCPIndex(), left->getCPIndex(), right->getCPIndex());
+   return mulValue;
    }
 
 TR::IlValue *

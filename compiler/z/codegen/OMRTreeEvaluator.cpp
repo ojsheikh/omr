@@ -12892,7 +12892,7 @@ OMR::Z::TreeEvaluator::arraysetEvaluator(TR::Node * node, TR::CodeGenerator * cg
                }
 
          default:
-            TR_ASSERT(0, "Unexpected copy datatype %d encountered on arrayset", constType);
+            TR_ASSERT(0, "Unexpected copy datatype %s encountered on arrayset", constType.toString());
             break;
          }
       }
@@ -14159,229 +14159,6 @@ OMR::Z::TreeEvaluator::barrierFenceEvaluator(TR::Node * node, TR::CodeGenerator 
    return NULL;
    }
 
-
-
-/**
- * countDigitsEvaluator - count the number of decimal digits of an integer/long binary
- * value (excluding the negative sign).  The original counting digits Java loop is
- * reduced to this IL node by idiom recognition.
- */
-TR::Register *
-OMR::Z::TreeEvaluator::countDigitsEvaluator(TR::Node * node, TR::CodeGenerator * cg)
-   {
-   // Idiom recognition will reduce the appropriate loop into the following
-   // form:
-   //    TR::countDigits
-   //        inputValue  // either int or long
-   //        digits10LookupTable
-   //
-   // Original loop:
-   //      do { count ++; } while((l /= 10) != 0);
-   //
-   // Since the maximum number of decimal digits for an int is 10, and a long is 19,
-   // we can perform binary search comparing the input value with pre-computed digits.
-
-
-   TR::Node * inputNode = node->getChild(0);
-   TR::Register * inputReg = cg->gprClobberEvaluate(inputNode);
-   TR::Register * workReg = cg->evaluate(node->getChild(1));
-   TR::Register * countReg = cg->allocateRegister();
-
-   TR_ASSERT( inputNode->getDataType() == TR::Int64 || inputNode->getDataType() == TR::Int32, "child of TR::countDigits must be of integer type");
-
-   bool isLong = (inputNode->getDataType() == TR::Int64);
-   TR_ASSERT( !isLong || TR::Compiler->target.is64Bit(), "CountDigitEvaluator requires 64-bit support for longs");
-
-   TR::RegisterDependencyConditions * dependencies;
-   dependencies = new (cg->trHeapMemory()) TR::RegisterDependencyConditions(0, 3, cg);
-   dependencies->addPostCondition(inputReg, TR::RealRegister::AssignAny);
-   dependencies->addPostCondition(workReg, TR::RealRegister::AssignAny);
-   dependencies->addPostCondition(countReg, TR::RealRegister::AssignAny);
-
-   TR::MemoryReference * work[18];
-   TR::LabelSymbol * label[18];
-   TR::LabelSymbol * labelEnd = TR::LabelSymbol::create(cg->trHeapMemory());
-
-   TR::Instruction *cursor;
-
-   // Get the negative input value (2's complement) - We treat all numbers as
-   // negative to simplify the absolute comparison, and take advance of the
-   // CC trick in countsDigitHelper.
-
-   // If the input is a 32-bit value on 64-bit architecture, we cannot simply use TR::InstOpCode::LNGR because the input may not be sign-extended.
-   // If you want to use TR::InstOpCode::LNGR for a 32-bit value on 64-bit architecture, you'll need to additionally generate TR::InstOpCode::LGFR for the input.
-   generateRRInstruction(cg, !isLong ? TR::InstOpCode::LNR : TR::InstOpCode::LNGR, node, inputReg, inputReg);
-
-   TR::LabelSymbol *startLabel = TR::LabelSymbol::create(cg->trHeapMemory(),cg);
-   startLabel->setStartInternalControlFlow();
-   generateS390LabelInstruction(cg, TR::InstOpCode::LABEL, node, startLabel);
-
-   if (isLong)
-      {
-      for (int32_t i = 0; i < 18; i++)
-         {
-         work[i] = generateS390MemoryReference(workReg, i*8, cg);
-         label[i] = TR::LabelSymbol::create(cg->trHeapMemory());
-         }
-
-      generateRXYInstruction(cg, TR::InstOpCode::CG, node, inputReg, work[7]);
-      generateS390BranchInstruction(cg, TR::InstOpCode::BRC, TR::InstOpCode::COND_BNHRC, node, label[11]);
-
-      // LABEL 3
-      generateRXYInstruction(cg, TR::InstOpCode::CG, node, inputReg, work[3]);
-      generateS390BranchInstruction(cg, TR::InstOpCode::BRC, TR::InstOpCode::COND_BNHRC, node, label[5]);
-
-      // LABEL 1
-      generateRXYInstruction(cg, TR::InstOpCode::CG, node, inputReg, work[1]);
-      generateS390BranchInstruction(cg, TR::InstOpCode::BRC, TR::InstOpCode::COND_BNHRC, node, label[2]);
-
-      countDigitsHelper(node, cg, 0, work[0], inputReg, countReg, labelEnd, isLong);           // 0 and 1
-
-      generateS390LabelInstruction(cg, TR::InstOpCode::LABEL, node, label[2]);       // LABEL 2
-      countDigitsHelper(node, cg, 2, work[2], inputReg, countReg, labelEnd, isLong);           // 2 and 3
-
-      generateS390LabelInstruction(cg, TR::InstOpCode::LABEL, node, label[5]);       // LABEL 5
-
-      generateRXYInstruction(cg, TR::InstOpCode::CG, node, inputReg, work[5]);
-      generateS390BranchInstruction(cg, TR::InstOpCode::BRC, TR::InstOpCode::COND_BNHRC, node, label[6]);
-
-      countDigitsHelper(node, cg, 4, work[4], inputReg, countReg, labelEnd, isLong);           // 4 and 5
-
-      generateS390LabelInstruction(cg, TR::InstOpCode::LABEL, node, label[6]);       // LABEL 6
-      countDigitsHelper(node, cg, 6, work[6], inputReg, countReg, labelEnd, isLong);          // 6 and 7
-
-      generateS390LabelInstruction(cg, TR::InstOpCode::LABEL, node, label[11]);      // LABEL 11
-
-      generateRXYInstruction(cg, TR::InstOpCode::CG, node, inputReg, work[11]);
-      generateS390BranchInstruction(cg, TR::InstOpCode::BRC, TR::InstOpCode::COND_BNHRC, node, label[14]);
-
-      // LABEL 9
-      generateRXYInstruction(cg, TR::InstOpCode::CG, node, inputReg, work[9]);
-      generateS390BranchInstruction(cg, TR::InstOpCode::BRC, TR::InstOpCode::COND_BNHRC, node, label[10]);
-
-      countDigitsHelper(node, cg, 8, work[8], inputReg, countReg, labelEnd, isLong);           // 8 and 9
-
-      generateS390LabelInstruction(cg, TR::InstOpCode::LABEL, node, label[10]);      // LABEL 10
-      countDigitsHelper(node, cg, 10, work[10], inputReg, countReg, labelEnd, isLong);  // 10 and 11
-
-      generateS390LabelInstruction(cg, TR::InstOpCode::LABEL, node, label[14]);      // LABEL 14
-
-      generateRXYInstruction(cg, TR::InstOpCode::CG, node, inputReg, work[14]);
-      generateS390BranchInstruction(cg, TR::InstOpCode::BRC, TR::InstOpCode::COND_BNHRC, node, label[16]);
-
-      // LABEL 12
-      generateRXYInstruction(cg, TR::InstOpCode::CG, node, inputReg, work[12]); // 12
-      generateRIInstruction(cg, TR::InstOpCode::getLoadHalfWordImmOpCode(), node, countReg, 12+1);
-      generateS390BranchInstruction(cg, TR::InstOpCode::BRC, TR::InstOpCode::COND_BHRC, node, labelEnd);
-
-      // LABEL 13
-      countDigitsHelper(node, cg, 13, work[13], inputReg, countReg, labelEnd, isLong);  // 13 and 14
-
-      generateS390LabelInstruction(cg, TR::InstOpCode::LABEL, node, label[16]);      // LABEL 16
-
-      generateRXYInstruction(cg, TR::InstOpCode::CG, node, inputReg, work[16]);
-      generateS390BranchInstruction(cg, TR::InstOpCode::BRC, TR::InstOpCode::COND_BNHRC, node, label[17]);
-      // LABEL 15
-      countDigitsHelper(node, cg, 15, work[15], inputReg, countReg, labelEnd, isLong);  // 15 and 16
-
-      generateS390LabelInstruction(cg, TR::InstOpCode::LABEL, node, label[17]);      // LABEL 17
-      countDigitsHelper(node, cg, 17, work[17], inputReg, countReg, labelEnd, isLong);  // 17 and 18
-
-      for (int32_t i = 0; i < 18; i++)
-         {
-         work[i]->stopUsingMemRefRegister(cg);
-         }
-      }
-   else
-      {
-      for (int32_t i = 0; i < 9; i++)
-         {
-         work[i] = generateS390MemoryReference(workReg, i*8+4, cg);     // lower 32-bit
-         label[i] = TR::LabelSymbol::create(cg->trHeapMemory());
-         }
-
-      // We already generate the label instruction, why would we generate it again?
-      //generateS390LabelInstruction(cg, TR::InstOpCode::LABEL, node, startLabel);
-
-      generateRXInstruction(cg, TR::InstOpCode::C, node, inputReg, work[3]);
-      generateS390BranchInstruction(cg, TR::InstOpCode::BRC, TR::InstOpCode::COND_BNHRC, node, label[5]);
-
-      // LABEL 1
-      generateRXInstruction(cg, TR::InstOpCode::C, node, inputReg, work[1]);
-      generateS390BranchInstruction(cg, TR::InstOpCode::BRC, TR::InstOpCode::COND_BNHRC, node, label[2]);
-
-      countDigitsHelper(node, cg, 0, work[0], inputReg, countReg, labelEnd, isLong);           // 0 and 1
-
-      generateS390LabelInstruction(cg, TR::InstOpCode::LABEL, node, label[2]);       // LABEL 2
-      countDigitsHelper(node, cg, 2, work[2], inputReg, countReg, labelEnd, isLong);           // 2 and 3
-
-      generateS390LabelInstruction(cg, TR::InstOpCode::LABEL, node, label[5]);       // LABEL 5
-
-      generateRXInstruction(cg, TR::InstOpCode::C, node, inputReg, work[5]);
-      generateS390BranchInstruction(cg, TR::InstOpCode::BRC, TR::InstOpCode::COND_BNHRC, node, label[7]);
-
-      countDigitsHelper(node, cg, 4, work[4], inputReg, countReg, labelEnd, isLong);           // 4 and 5
-
-      generateS390LabelInstruction(cg, TR::InstOpCode::LABEL, node, label[7]);       // LABEL 7
-
-      generateRXInstruction(cg, TR::InstOpCode::C, node, inputReg, work[7]);
-      generateS390BranchInstruction(cg, TR::InstOpCode::BRC, TR::InstOpCode::COND_BNHRC, node, label[8]);
-
-      countDigitsHelper(node, cg, 6, work[6], inputReg, countReg, labelEnd, isLong);           // 6 and 7
-
-      generateS390LabelInstruction(cg, TR::InstOpCode::LABEL, node, label[8]);       // LABEL 8
-      countDigitsHelper(node, cg, 8, work[8], inputReg, countReg, labelEnd, isLong);           // 8 and 9
-
-
-      for (int32_t i = 0; i < 9; i++)
-         {
-         work[i]->stopUsingMemRefRegister(cg);
-         }
-      }
-
-   cg->stopUsingRegister(inputReg);
-   cg->stopUsingRegister(workReg);
-
-   // End
-   cursor = generateS390LabelInstruction(cg, TR::InstOpCode::LABEL, node, labelEnd);
-   labelEnd->setEndInternalControlFlow();
-   cursor->setDependencyConditions(dependencies);
-
-   node->setRegister(countReg);
-
-   cg->decReferenceCount(inputNode);
-   cg->decReferenceCount(node->getChild(1));
-   return countReg;
-   }
-
-/**
- * countDigitsHelper emits code to determine whether the given input value has
- * memRefIndex or memRefIndex+1 digits.
- */
-void
-OMR::Z::TreeEvaluator::countDigitsHelper(TR::Node * node, TR::CodeGenerator * cg,
-                                        int32_t memRefIndex, TR::MemoryReference * memRef,
-                                        TR::Register* inputReg, TR::Register* countReg,
-                                        TR::LabelSymbol *doneLabel, bool isLong)
-   {
-   // Compare input value with the binary memRefIndex value. The instruction
-   // sets CC1 if input <= [memRefIndex], which is also the borrow CC.  Since
-   // the numbers are all negative, the equivalent comparison is set if
-   // inputValue > [memRefIndex].
-   generateRXInstruction(cg, (isLong)?TR::InstOpCode::CG:TR::InstOpCode::C, node, inputReg, memRef);        \
-
-   // Clear countRegister and set it to 1 if inputValue > [memRefIndex].
-   generateRRInstruction(cg, TR::InstOpCode::getSubtractWithBorrowOpCode(), node, countReg, countReg);
-   generateRRInstruction(cg, TR::InstOpCode::getLoadComplementOpCode(), node, countReg, countReg);
-
-   // Calculate final count of digits by adding to memRefIndex + 1.  The +1 is
-   // required as our memRefIndex starts with index 0, but digit counts starts with 1.
-   generateRIInstruction(cg, TR::InstOpCode::getAddHalfWordImmOpCode(), node, countReg, memRefIndex+1);
-
-   // CountReg has the number of digits.  Jump to done label.
-   generateS390BranchInstruction(cg, TR::InstOpCode::BRC, TR::InstOpCode::COND_BRC, node, doneLabel);
-
-   }
 
 /**
  * long2StringEvaluator - Convert integer/long value to String
@@ -18432,7 +18209,7 @@ int32_t getVectorElementSize(TR::Node *node)
       case TR::VectorFloat: return 4;
       case TR::VectorInt64:
       case TR::VectorDouble: return 8;
-      default: TR_ASSERT(false, "Unknown vector node type %i for element size\n", node->getDataType()); return 0;
+      default: TR_ASSERT(false, "Unknown vector node type %s for element size\n", node->getDataType().toString()); return 0;
       }
    }
 
@@ -18446,7 +18223,7 @@ int32_t getVectorElementSizeMask(TR::Node *node)
       case TR::VectorFloat: return 2;
       case TR::VectorInt64:
       case TR::VectorDouble: return 3;
-      default: TR_ASSERT(false, "Unknown vector node type %i for Element Size Control Mask\n", node->getDataType()); return 0;
+      default: TR_ASSERT(false, "Unknown vector node type %s for Element Size Control Mask\n", node->getDataType().toString()); return 0;
       }
    }
 
@@ -18504,7 +18281,7 @@ OMR::Z::TreeEvaluator::vnegEvaluator(TR::Node *node, TR::CodeGenerator *cg)
       case TR::VectorInt32:
       case TR::VectorInt64: return inlineVectorUnaryOp(node, cg, TR::InstOpCode::VLC);
       case TR::VectorDouble: return inlineVectorUnaryOp(node, cg, TR::InstOpCode::VFPSO);
-      default: TR_ASSERT(false, "unrecognized vector type %i\n", node->getDataType()); return NULL;
+      default: TR_ASSERT(false, "unrecognized vector type %s\n", node->getDataType().toString()); return NULL;
       }
    }
 
@@ -18626,7 +18403,7 @@ OMR::Z::TreeEvaluator::vaddEvaluator(TR::Node *node, TR::CodeGenerator *cg)
          case TR::VectorInt32:
          case TR::VectorInt64: return inlineVectorBinaryOp(node, cg, TR::InstOpCode::VA);
          case TR::VectorDouble: return inlineVectorBinaryOp(node, cg, TR::InstOpCode::VFA);
-         default: TR_ASSERT(false, "unrecognized vector type %i\n", node->getDataType()); return NULL;
+         default: TR_ASSERT(false, "unrecognized vector type %s\n", node->getDataType().toString()); return NULL;
          }
       }
    }
@@ -18652,7 +18429,7 @@ OMR::Z::TreeEvaluator::vsubEvaluator(TR::Node *node, TR::CodeGenerator *cg)
          case TR::VectorInt32:
          case TR::VectorInt64: return inlineVectorBinaryOp(node, cg, TR::InstOpCode::VS);
          case TR::VectorDouble: return inlineVectorBinaryOp(node, cg, TR::InstOpCode::VFS);
-         default: TR_ASSERT(false, "unrecognized vector type %i\n", node->getDataType()); return NULL;
+         default: TR_ASSERT(false, "unrecognized vector type %s\n", node->getDataType().toString()); return NULL;
          }
       }
    }
@@ -18712,7 +18489,7 @@ OMR::Z::TreeEvaluator::vmulEvaluator(TR::Node *node, TR::CodeGenerator *cg)
          return returnReg;
          }
       case TR::VectorDouble: return inlineVectorBinaryOp(node, cg, TR::InstOpCode::VFM);
-      default: TR_ASSERT(false, "unrecognized vector type %i\n", node->getDataType()); return NULL;
+      default: TR_ASSERT(false, "unrecognized vector type %s\n", node->getDataType().toString()); return NULL;
       }
    }
 
@@ -18811,7 +18588,7 @@ OMR::Z::TreeEvaluator::vdivEvaluator(TR::Node *node, TR::CodeGenerator *cg)
       case TR::VectorInt32:
       case TR::VectorInt64: return vDivOrRemHelper(node, cg, true);
       case TR::VectorDouble: return inlineVectorBinaryOp(node, cg, TR::InstOpCode::VFD);
-      default: TR_ASSERT(false, "unrecognized vector type %i\n", node->getDataType()); return NULL;
+      default: TR_ASSERT(false, "unrecognized vector type %s\n", node->getDataType().toString()); return NULL;
       }
    }
 
@@ -18925,7 +18702,7 @@ OMR::Z::TreeEvaluator::vcmpeqEvaluator(TR::Node *node, TR::CodeGenerator *cg)
       case TR::VectorInt32:
       case TR::VectorInt64: return inlineVectorBinaryOp(node, cg, TR::InstOpCode::VCEQ);
       case TR::VectorDouble: return inlineVectorBinaryOp(node, cg, TR::InstOpCode::VFCE);
-      default: TR_ASSERT(false, "unrecognized vector type %i\n", node->getDataType()); return NULL;
+      default: TR_ASSERT(false, "unrecognized vector type %s\n", node->getDataType().toString()); return NULL;
       }
    }
 
@@ -18940,7 +18717,7 @@ OMR::Z::TreeEvaluator::vcmpneEvaluator(TR::Node *node, TR::CodeGenerator *cg)
       case TR::VectorInt32:
       case TR::VectorInt64: targetReg = inlineVectorBinaryOp(node, cg, TR::InstOpCode::VCEQ); break;
       case TR::VectorDouble: targetReg = inlineVectorBinaryOp(node, cg, TR::InstOpCode::VFCE); break;
-      default: TR_ASSERT(false, "unrecognized vector type %i\n", node->getDataType()); break;
+      default: TR_ASSERT(false, "unrecognized vector type %s\n", node->getDataType().toString()); break;
       }
 
    // vector nor with zero vector
@@ -18970,7 +18747,7 @@ OMR::Z::TreeEvaluator::vcmpgtEvaluator(TR::Node *node, TR::CodeGenerator *cg)
       case TR::VectorInt32:
       case TR::VectorInt64: return inlineVectorBinaryOp(node, cg, op);
       case TR::VectorDouble: return inlineVectorBinaryOp(node, cg, TR::InstOpCode::VFCH);
-      default: TR_ASSERT(false, "unrecognized vector type %i\n", node->getDataType()); return NULL;
+      default: TR_ASSERT(false, "unrecognized vector type %s\n", node->getDataType().toString()); return NULL;
       }
    }
 

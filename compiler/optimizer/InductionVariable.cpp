@@ -65,7 +65,7 @@
 #include "optimizer/Dominators.hpp"              // for TR_Dominators
 #include "optimizer/UseDefInfo.hpp"              // for TR_UseDefInfo, etc
 #include "optimizer/LoopCanonicalizer.hpp"       // for TR_LoopTransformer
-#include "optimizer/VPConstraint.hpp"            // for TR_VPConstraint, etc
+#include "optimizer/VPConstraint.hpp"            // for TR::VPConstraint, etc
 #include "ras/Debug.hpp"                         // for TR_DebugBase
 
 #define OPT_DETAILS "O^O INDUCTION VARIABLE ANALYSIS: "
@@ -100,7 +100,7 @@ int32_t TR_LoopStrider::perform()
    bool usingAladd = (TR::Compiler->target.is64Bit()) ?
                      true : false;
 
-   static char *enableSignExtn = feGetEnv("TR_enableSelIndVar");
+   static char *disableSignExtn = feGetEnv("TR_disableSelIndVar");
 
    _registersScarce = cg()->areAssignableGPRsScarce();
 
@@ -113,7 +113,7 @@ int32_t TR_LoopStrider::perform()
    //_loadUsedInNewLoopIncrementList = NULL;
 
    // 64-bit sign-extension elimination
-   if (usingAladd && enableSignExtn)
+   if (usingAladd && !disableSignExtn)
       {
       TR_UseDefInfo *info = optimizer()->getUseDefInfo();
 
@@ -511,8 +511,8 @@ int32_t TR_LoopStrider::detectCanonicalizedPredictableLoops(TR_Structure *loopSt
 
                   if (v && v->getEntry() && v->getExit())
                      {
-                     TR_VPConstraint *entryVal = v->getEntry();
-                     TR_VPConstraint *exitVal = v->getExit();
+                     TR::VPConstraint *entryVal = v->getEntry();
+                     TR::VPConstraint *exitVal = v->getExit();
                      if (entryVal->asIntConstraint())
                         {
                         if (entryVal->getHighInt() <= TR::getMaxSigned<TR::Int32>()/8)
@@ -802,12 +802,12 @@ int32_t TR_LoopStrider::detectCanonicalizedPredictableLoops(TR_Structure *loopSt
                          TR_InductionVariable *v = loopStructure->asRegion()->findMatchingIV(inductionVarSymRef);
                         if (v)
                            {
-                           TR_VPConstraint *entryVal = v->getEntry();
-                           TR_VPConstraint *exitVal = v->getExit();
-                           TR_VPConstraint *incr = v->getIncr();
-                           TR_VPConstraint *newEntryVal = NULL;
-                           TR_VPConstraint *newExitVal = NULL;
-                           TR_VPConstraint *newIncr = NULL;
+                           TR::VPConstraint *entryVal = v->getEntry();
+                           TR::VPConstraint *exitVal = v->getExit();
+                           TR::VPConstraint *incr = v->getIncr();
+                           TR::VPConstraint *newEntryVal = NULL;
+                           TR::VPConstraint *newExitVal = NULL;
+                           TR::VPConstraint *newIncr = NULL;
 
                            if (newSymbolReference->getSymbol()->getType().isInt64())
                               {
@@ -1039,7 +1039,7 @@ bool TR_LoopStrider::reassociateAndHoistNonPacked()
    }
 
 
-TR_VPLongRange* TR_LoopStrider::genVPLongRange(TR_VPConstraint* cons, int64_t coeff, int64_t additive)
+TR::VPLongRange* TR_LoopStrider::genVPLongRange(TR::VPConstraint* cons, int64_t coeff, int64_t additive)
    {
    if (cons)
       {
@@ -1055,18 +1055,18 @@ TR_VPLongRange* TR_LoopStrider::genVPLongRange(TR_VPConstraint* cons, int64_t co
          high = cons->getHighLong();
          }
 
-      return new (trHeapMemory()) TR_VPLongRange(low*coeff + additive, high*coeff + additive);
+      return new (trHeapMemory()) TR::VPLongRange(low*coeff + additive, high*coeff + additive);
       }
    return NULL;
    }
 
-TR_VPIntRange* TR_LoopStrider::genVPIntRange(TR_VPConstraint* cons, int64_t coeff, int64_t additive)
+TR::VPIntRange* TR_LoopStrider::genVPIntRange(TR::VPConstraint* cons, int64_t coeff, int64_t additive)
    {
    if (cons && cons->asIntConstraint())
       {
       int32_t low = cons->getLowInt();
       int32_t high = cons->getHighInt();
-      return new (trHeapMemory()) TR_VPIntRange((int32_t)(low*coeff + additive), (int32_t)(high*coeff + additive));
+      return new (trHeapMemory()) TR::VPIntRange((int32_t)(low*coeff + additive), (int32_t)(high*coeff + additive));
       }
    return NULL;
    }
@@ -3811,7 +3811,7 @@ bool TR_LoopStrider::isStoreInRequiredForm(TR::Node *storeNode, int32_t symRefNu
       if (!v) return false;
 
       _isAddition = true;
-      TR_VPConstraint * incr = v->getIncr();
+      TR::VPConstraint * incr = v->getIncr();
       int64_t low;
 
       if (incr->asIntConst())
@@ -4360,8 +4360,9 @@ void TR_LoopStrider::extendIVsOnLoopEntry(
    if (!tt->getNode()->getOpCode().isBranch())
       tt = tt->getNextTreeTop();
 
+   TR::Node *bciNode = preheader->getExit()->getNode();
    for (auto iv = ivs.begin(); iv != ivs.end(); ++iv)
-      convertIV(tt, iv->first, iv->second, TR::i2l);
+      convertIV(bciNode, tt, iv->first, iv->second, TR::i2l);
    }
 
 /**
@@ -4420,8 +4421,9 @@ void TR_LoopStrider::truncateIVsOnLoopExit(
          // would be rejected by detectLoopsForIndVarConversion. So dest will
          // always have an entry tree.
          TR::TreeTop *tt = dest->getEntry()->getNextTreeTop();
+         TR::Node *bciNode = dest->getEntry()->getNode();
          for (auto iv = ivs.begin(); iv != ivs.end(); ++iv)
-            convertIV(tt, iv->second, iv->first, TR::l2i);
+            convertIV(bciNode, tt, iv->second, iv->first, TR::l2i);
          }
       }
    }
@@ -4429,12 +4431,14 @@ void TR_LoopStrider::truncateIVsOnLoopExit(
 /**
  * Emit a variable conversion tree: \p ivOut <- \p op \p ivIn.
  *
- * \param nextTT the treetop before which the conversion is inserted
- * \param ivIn   the symbol reference number of the input variable
- * \param ivOut  the symbol reference number of the output variable
- * \param op     the conversion operation
+ * \param bciNode the node whose bci to copy onto the newly created nodes
+ * \param nextTT  the treetop before which the conversion is inserted
+ * \param ivIn    the symbol reference number of the input variable
+ * \param ivOut   the symbol reference number of the output variable
+ * \param op      the conversion operation
  */
 void TR_LoopStrider::convertIV(
+   TR::Node *bciNode,
    TR::TreeTop *nextTT,
    int32_t ivIn,
    int32_t ivOut,
@@ -4449,9 +4453,9 @@ void TR_LoopStrider::convertIV(
       TR::ILOpCode(op).getName(),
       ivIn,
       nextTT->getEnclosingBlock()->getNumber());
-   TR::Node *conv = TR::Node::createStore(
+   TR::Node *conv = TR::Node::createStore(bciNode,
       out,
-      TR::Node::create(op, 1, TR::Node::createLoad(in)));
+      TR::Node::create(bciNode, op, 1, TR::Node::createLoad(bciNode, in)));
    nextTT->insertBefore(TR::TreeTop::create(comp(), conv));
    }
 
@@ -4462,14 +4466,14 @@ void TR_LoopStrider::createConstraintsForNewInductionVariable(TR_Structure *loop
    if (v)
       {
       // old constraints
-      TR_VPConstraint *entryVal = v->getEntry();
-      TR_VPConstraint *exitVal = v->getExit();
-      TR_VPConstraint *incr = v->getIncr();
+      TR::VPConstraint *entryVal = v->getEntry();
+      TR::VPConstraint *exitVal = v->getExit();
+      TR::VPConstraint *incr = v->getIncr();
 
       //new constraints
-      TR_VPConstraint *newEntryVal = genVPLongRange(entryVal, 1, 0);  // create the new entry constraint
-      TR_VPConstraint *newExitVal = genVPLongRange(entryVal, 1, 0); // create the new exit constraint
-      TR_VPConstraint *newIncr = genVPLongRange(incr, 1, 0); // create the new incr constraint
+      TR::VPConstraint *newEntryVal = genVPLongRange(entryVal, 1, 0);  // create the new entry constraint
+      TR::VPConstraint *newExitVal = genVPLongRange(entryVal, 1, 0); // create the new exit constraint
+      TR::VPConstraint *newIncr = genVPLongRange(incr, 1, 0); // create the new incr constraint
 
       TR_InductionVariable *oldIV = loopStructure->asRegion()->findMatchingIV(oldSymRef);
 
@@ -4645,7 +4649,7 @@ void TR_LoopStrider::walkTreesAndFixUseDefs(
       _loopDrivingInductionVar);
 
    TR::Node *newIntValue = storeNode->getFirstChild();
-   storeNode->setAndIncChild(0, TR::Node::create(TR::i2l, 1, newIntValue));
+   storeNode->setAndIncChild(0, TR::Node::create(storeNode, TR::i2l, 1, newIntValue));
    newIntValue->decReferenceCount();
    storeNode->setSymbolReference(newSymbolReference);
    TR::Node::recreate(storeNode, TR::lstore);
@@ -4714,7 +4718,7 @@ void TR_LoopStrider::replaceLoadsInSubtree(
    if (node->getOpCodeValue() == TR::iload
        && node->getSymbolReference()->getReferenceNumber() == iv)
       {
-      TR::Node *lload = TR::Node::createLoad(newSR);
+      TR::Node *lload = TR::Node::createLoad(node, newSR);
       TR::Node::recreate(node, TR::l2i);
       node->setNumChildren(1);
       node->setAndIncChild(0, lload);
@@ -4931,7 +4935,7 @@ TR::Node *TR_LoopStrider::signExtend(
    switch (node->getOpCodeValue())
       {
       case TR::iconst:
-         ext = TR::Node::lconst((int64_t)node->getConst<int32_t>());
+         ext = TR::Node::lconst(node, (int64_t)node->getConst<int32_t>());
          break;
 
       case TR::l2i:
@@ -4995,7 +4999,7 @@ TR::Node *TR_LoopStrider::signExtendBinOp(
    if (extRight == NULL)
       return NULL;
 
-   TR::Node *longNode = TR::Node::create(op64, 2, extLeft, extRight);
+   TR::Node *longNode = TR::Node::create(node, op64, 2, extLeft, extRight);
    longNode->setFlags(node->getFlags());
    return longNode;
    }

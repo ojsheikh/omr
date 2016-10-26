@@ -144,13 +144,17 @@ public:
    TR::IlValue *ConstInt64(int64_t value);
    TR::IlValue *ConstFloat(float value);
    TR::IlValue *ConstDouble(double value);
+   TR::IlValue *ConstAddress(void* value);
    TR::IlValue *ConstString(const char *value);
    TR::IlValue *ConstzeroValueForValue(TR::IlValue *v);
 
    // arithmetic
    TR::IlValue *Add(TR::IlValue *left, TR::IlValue *right);
+   TR::IlValue *AddWithOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *Sub(TR::IlValue *left, TR::IlValue *right);
+   TR::IlValue *SubWithOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *Mul(TR::IlValue *left, TR::IlValue *right);
+   TR::IlValue *MulWithOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *Div(TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *And(TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *Xor(TR::IlValue *left, TR::IlValue *right);
@@ -165,7 +169,6 @@ public:
    TR::IlValue *LessThan(TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *GreaterThan(TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *ConvertTo(TR::IlType *t, TR::IlValue *v);
-   TR::IlValue *AddWithOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlValue *right);
 
    // memory
    TR::IlValue *CreateLocalArray(int32_t numElements, TR::IlType *elementType);
@@ -360,6 +363,7 @@ protected:
 
    TR::Node *genOverflowCHKTreeTop(TR::Node *operationNode);
    void appendExceptionHandler(TR::Block *blockThrowsException, TR::IlBuilder **builder, uint32_t catchType);
+   TR::IlValue *operationWithOverflow(TR::ILOpCodes op, TR::Node *leftNode, TR::Node *rightNode, TR::IlBuilder **handler);
    virtual void setHandlerInfo(uint32_t catchType);
    };
 

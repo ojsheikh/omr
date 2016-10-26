@@ -581,9 +581,6 @@ OMR::Z::CodeGenerator::CodeGenerator()
 
    self()->setMultiplyIsDestructive();
 
-   // NI/XI/OI and SS ops for bitwise ops -- used during remat
-   self()->setSimpleAddressingForBitwiseOps();
-
    static char * noGraFIX= feGetEnv("TR_NOGRAFIX");
    if (!noGraFIX)
       {
@@ -838,11 +835,6 @@ bool OMR::Z::CodeGenerator::isStackBased(TR::MemoryReference *mr)
               self()->getStackPointerRealRegister()->getRegisterNumber());
       }
    return false;
-   }
-
-bool OMR::Z::CodeGenerator:: ignoreNodeForPRE(TR::Node *node)
-   {
-      return false;
    }
 
 bool OMR::Z::CodeGenerator::prepareForGRA()
@@ -6357,26 +6349,6 @@ OMR::Z::CodeGenerator::enableRegisterPairAssociation()
    return true;
    }
 
-/////////////////////////////////////////////////////////////////////////////////
-//  Rematerialization
-bool
-OMR::Z::CodeGenerator::materializesLargeConstants()
-   {
-   return false;
-   }
-
-int32_t
-OMR::Z::CodeGenerator::getLargestNegConstThatMustBeMaterialized()
-   {
-   return -32769;
-   }
-
-int32_t
-OMR::Z::CodeGenerator::getSmallestPosConstThatMustBeMaterialized()
-   {
-   return  32768;
-   }
-
 ////////////////////////////////////////////////////////////////////////////////
 //  Tactical GRA
 TR_GlobalRegisterNumber
@@ -10124,7 +10096,7 @@ OMR::Z::CodeGenerator::biasDecimalFloatFrac(TR::DataType dt, int32_t frac)
       case TR::DecimalDouble:     return TR_DECIMAL_DOUBLE_BIAS-frac;
       case TR::DecimalLongDouble: return TR_DECIMAL_LONG_DOUBLE_BIAS-frac;
 #endif
-      default: TR_ASSERT(0, "unexpected biasDecimalFloatFrac dt %d",dt);
+      default: TR_ASSERT(0, "unexpected biasDecimalFloatFrac dt %s",dt.toString());
       }
    return 0;
    }
