@@ -16,29 +16,26 @@
  *    Multiple authors (IBM Corp.) - initial implementation and documentation
  *******************************************************************************/
 
-#ifndef TEST_TESTS_OMRTESTENV_HPP_
-#define TEST_TESTS_OMRTESTENV_HPP_
+#include "TestDriver.hpp"
 
-#include <limits.h>
-#include <stdio.h>
-#include <stdint.h>
-#include "compile/Method.hpp"
-#include "il/DataTypes.hpp"
-#include "gtest/gtest.h"
-
-class TR_Memory;
-
-namespace TestCompiler {
-
-class OMRTestEnv : public testing::Environment
+namespace TestCompiler
+{
+class SimplifierFoldAndTest : public TestDriver
    {
    public:
-   virtual void SetUp();
-   virtual void TearDown();
-   static void initialize(char *options);
-   static void shutdown();
-};
 
+   // int64_t testCompiledMethod(int32_t x);
+   typedef int64_t (*TestCompiledMethodType)(int32_t);
+
+   protected:
+
+   virtual void allocateTestData();
+   virtual void compileTestMethods();
+   virtual void invokeTests();
+   virtual void deallocateTestData();
+
+   private:
+
+   static TestCompiledMethodType testCompiledMethod;
+   };
 }
-
-#endif /* TEST_TESTS_OMRTESTENV_HPP_ */

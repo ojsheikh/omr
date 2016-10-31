@@ -16,29 +16,31 @@
  *    Multiple authors (IBM Corp.) - initial implementation and documentation
  *******************************************************************************/
 
-#ifndef TEST_TESTS_OMRTESTENV_HPP_
-#define TEST_TESTS_OMRTESTENV_HPP_
-
-#include <limits.h>
-#include <stdio.h>
-#include <stdint.h>
+#include "compile/Compilation.hpp"
+#include "env/FrontEnd.hpp"
 #include "compile/Method.hpp"
-#include "il/DataTypes.hpp"
-#include "gtest/gtest.h"
+#include "tests/SimplifierFoldAndIlInjector.hpp"
+#include "ilgen/TypeDictionary.hpp"
 
-class TR_Memory;
-
-namespace TestCompiler {
-
-class OMRTestEnv : public testing::Environment
+namespace TestCompiler
+{
+bool
+SimplifierFoldAndIlInjector::injectIL()
    {
-   public:
-   virtual void SetUp();
-   virtual void TearDown();
-   static void initialize(char *options);
-   static void shutdown();
-};
+   createBlocks(1);
 
+   TR::SymbolReference* i = newTemp(Int64);
+
+   // int64_t i = ((int64_t) parameter) & 0xFFFFFFFF00000000ll;
+   storeToTemp(i,
+         createWithoutSymRef(TR::land, 2,
+               iu2l
+                    (parameter(0, Int32)),
+               lconst(0xFFFFFFFF00000000ll)));
+
+   // return i;
+   returnValue(loadTemp(i));
+
+   return true;
+   }
 }
-
-#endif /* TEST_TESTS_OMRTESTENV_HPP_ */

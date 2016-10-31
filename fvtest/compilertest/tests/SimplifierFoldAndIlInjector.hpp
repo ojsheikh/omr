@@ -16,29 +16,25 @@
  *    Multiple authors (IBM Corp.) - initial implementation and documentation
  *******************************************************************************/
 
-#ifndef TEST_TESTS_OMRTESTENV_HPP_
-#define TEST_TESTS_OMRTESTENV_HPP_
+#include "ilgen/IlInjector.hpp"
 
-#include <limits.h>
-#include <stdio.h>
-#include <stdint.h>
-#include "compile/Method.hpp"
-#include "il/DataTypes.hpp"
-#include "gtest/gtest.h"
+namespace TR { class TypeDictionary; }
 
-class TR_Memory;
-
-namespace TestCompiler {
-
-class OMRTestEnv : public testing::Environment
+namespace TestCompiler
+{
+class SimplifierFoldAndIlInjector : public TR::IlInjector
    {
    public:
-   virtual void SetUp();
-   virtual void TearDown();
-   static void initialize(char *options);
-   static void shutdown();
-};
 
+   TR_ALLOC(TR_Memory::IlGenerator)
+
+   SimplifierFoldAndIlInjector(TR::TypeDictionary* types, TestDriver* test)
+   :
+      TR::IlInjector(types, test)
+      {
+      // Void
+      }
+
+   bool injectIL();
+   };
 }
-
-#endif /* TEST_TESTS_OMRTESTENV_HPP_ */

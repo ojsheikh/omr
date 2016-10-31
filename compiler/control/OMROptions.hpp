@@ -48,7 +48,7 @@ namespace OMR { typedef OMR::Options OptionsConnector; }
 
 namespace TR { class CFGNode; }
 
-class TR_CompilationFilters;
+namespace TR { class CompilationFilters; }
 class TR_Debug;
 class TR_Debug;
 class TR_MCTLogs;
@@ -170,7 +170,7 @@ enum TR_CompilationOptions
    TR_EnableParanoidOptCheck              = 0x00000400 + 2,
    TR_AlwaysSafeFatal                     = 0x00000800 + 2, ///< Always fire a safe fatal assert for testing purposes
    TR_DisableReadMonitors                 = 0x00001000 + 2,
-   TR_StopOnFailure                       = 0x00002000 + 2,
+   // Available                           = 0x00002000 + 2,
    TR_TraceUseDefs                        = 0x00004000 + 2,
    TR_TraceValueNumbers                   = 0x00008000 + 2,
    TR_TraceLiveness                       = 0x00010000 + 2,
@@ -642,11 +642,9 @@ enum TR_CompilationOptions
    // Available                                       = 0x00000400 + 18,
    // Available                                       = 0x00000800 + 18,
    // Available                                       = 0x00001000 + 18,
-   // Available                                       = 0x00002000 + 18, // trace sequentialConstantStoreSimplification
    // Available                                       = 0x00004000 + 18,
    // Available                                       = 0x00008000 + 18,
    // Available                                       = 0x00010000 + 18,
-   TR_EnableSCSSRelocations                           = 0x00020000 + 18, // enable relocations in sequentialConstantStoreSimplification sequences
    // Available                                       = 0x00040000 + 18,
    TR_DisableProloguePushes                           = 0x00080000 + 18, // Use stores instead of pushes in x86 prologues
    TR_EnableOutlinedPrologues                         = 0x00100000 + 18, // Call a helper to do some of the prologue logic
@@ -772,7 +770,7 @@ enum TR_CompilationOptions
    // Option word 23
    TR_TraceMethodIndex                                = 0x00000020 + 23,
    TR_DisableGuardedCallArgumentRemat                 = 0x00000040 + 23,
-   TR_BreakOnOOM                                      = 0x00000080 + 23,
+   // Available                                       = 0x00000080 + 23,
    // Available                                       = 0x00000100 + 23,
    TR_DisableMCSBypass                                = 0x00000200 + 23, // JSR292: MutableCallSite bypass optimization
    TR_DisableHWProfilerThread                         = 0x00000400 + 23,
@@ -1386,11 +1384,14 @@ public:
 
    // Sub group filters
    //
-   TR_CompilationFilters * subGroup;
+   TR::CompilationFilters * subGroup;
 
    };
 
-class TR_CompilationFilters
+namespace TR
+{
+
+class CompilationFilters
    {
 public:
    #define FILTER_HASH_SIZE 211
@@ -1437,7 +1438,7 @@ public:
    void setHasRegexFilter()         {flags |= HasRegexFilter;}
    void setDefaultExclude(bool b)   {if (b) flags |= DefaultExclude;else flags &= ~DefaultExclude;}
    };
-
+} //namespace TR
 
 // Compilation options - each compilation has a pointer to one of these objects
 // to represent the options used for that compilation. There is a single
