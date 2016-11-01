@@ -57,43 +57,8 @@ omrthread_spinlock_acquire(omrthread_t self, omrthread_monitor_t monitor)
 	J9ThreadMonitorTracing *tracing = (self->library->flags & J9THREAD_LIB_FLAG_JLM_ENABLED) ? monitor->tracing : NULL;
 #endif /* OMR_THR_JLM */
 
-#if defined(OMR_DYNAMIC_SPIN_FEATURE)
- 	uintptr_t spinCount1Init = monitor->spinCount1;
- 	uintptr_t spinCount2Init = monitor->spinCount2;
- 	uintptr_t spinCount3Init = monitor->spinCount3;
-
- 	omrthread_library_t const lib = self->library;
- 	BOOLEAN spinDecision = TRUE;
-
- 	if (OMRTHREAD_SPIN_HEURISTIC_ON == lib->spinInfo.spinHeuristic) {
-		const uintptr_t numCpus = lib->spinInfo.numCpus;
-		const uintptr_t numUsefulThreads = lib->threadCount - lib->spinInfo.numThreadsSpinning - lib->spinInfo.numThreadsWaiting;
-		/* Spin only if there are more CPUs available than threads which can do useful work.
-		 * We ignore threads that are spinning and waiting. Waiting threads don't do useful
-		 * work. Spinning occurs for a short period of time. After spinning, threads may
-		 * either end up waiting or performing useful work depending upon contention. We
-		 * ignore spinning threads since we don't want to over-estimate the number of
-		 * threads which can do useful work. Avoiding over-estimation helps in ensuring that
-		 * spinning is not turned off when it may help performance.
-		 */
-		spinDecision = (numCpus > numUsefulThreads);
- 	}
-
- 	if (spinDecision) {
- 		VM_AtomicSupport::add(&lib->spinInfo.numThreadsSpinning, 1);
- 	} else {
-		/* Set spin counts to minimum to avoid spinning */
-		spinCount1Init = 1;
-		spinCount2Init = 1;
-		spinCount3Init = 1;
- 	}
-
- 	for (uintptr_t spinCount3 = spinCount3Init; spinCount3 > 0; spinCount3--) {
- 		for (uintptr_t spinCount2 = spinCount2Init; spinCount2 > 0; spinCount2--) {
-#else /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 	for (uintptr_t spinCount3 = monitor->spinCount3; spinCount3 > 0; spinCount3--) {
 		for (uintptr_t spinCount2 = monitor->spinCount2; spinCount2 > 0; spinCount2--) {
-#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 			/* Try to put 0 into the target field (-1 indicates free)'. */
 			if (oldState == VM_AtomicSupport::lockCompareExchange(target, oldState, newState, true)) {
 #if defined(OMR_THR_JLM)
@@ -103,13 +68,8 @@ omrthread_spinlock_acquire(omrthread_t self, omrthread_monitor_t monitor)
 					 * let i=spinCount2, j=spinCount3
 					 * then yield count += m-j, spin2 count += (m-j)*n + (n-i)+1
 					 */
-#if defined(OMR_DYNAMIC_SPIN_FEATURE)
-					uintptr_t m = spinCount3Init;
-					uintptr_t n = spinCount2Init;
-#else /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 					uintptr_t m = monitor->spinCount3;
 					uintptr_t n = monitor->spinCount2;
-#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 					uintptr_t j = spinCount3;
 					uintptr_t i = spinCount2;
 					VM_AtomicSupport::add(&tracing->yield_count, m - j);
@@ -123,11 +83,7 @@ omrthread_spinlock_acquire(omrthread_t self, omrthread_monitor_t monitor)
 			VM_AtomicSupport::yieldCPU();
 
 			/* begin tight loop */
-#if defined(OMR_DYNAMIC_SPIN_FEATURE)
-			for (uintptr_t spinCount1 = spinCount1Init; spinCount1 > 0; spinCount1--) {
-#else /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 			for (uintptr_t spinCount1 = monitor->spinCount1; spinCount1 > 0; spinCount1--)	{
-#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 				VM_AtomicSupport::nop();
 			} /* end tight loop */
 		}
@@ -144,23 +100,13 @@ omrthread_spinlock_acquire(omrthread_t self, omrthread_monitor_t monitor)
 		 * let m=monitor _spinCount3, n=monitor _spinCount2
 		 * then yield count += m, spin2 count += m*n
 		 */
-#if defined(OMR_DYNAMIC_SPIN_FEATURE)
-		uintptr_t m = spinCount3Init;
-		uintptr_t n = spinCount2Init;
-#else /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 		uintptr_t m = monitor->spinCount3;
 		uintptr_t n = monitor->spinCount2;
-#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 		VM_AtomicSupport::add(&tracing->yield_count, m);
 		VM_AtomicSupport::add(&tracing->spin2_count, m * n);
 	}
 #endif /* OMR_THR_JLM */
 done:
-#if defined(OMR_DYNAMIC_SPIN_FEATURE)
-	if (spinDecision) {
-		VM_AtomicSupport::subtract(&lib->spinInfo.numThreadsSpinning, 1);
-	}
-#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 	return result;
 }
 
@@ -218,26 +164,3 @@ omrthread_spinlock_swapState(omrthread_monitor_t monitor, uintptr_t newState)
 #endif /* OMR_THR_THREE_TIER_LOCKING */
 
 }
-
-#if defined(OMR_DYNAMIC_SPIN_FEATURE)
-void
-omrthread_set_num_cpus(const uintptr_t cpus)
-{
-	omrthread_library_t const lib = (omrthread_library_t)GLOBAL_DATA(default_library);
-	lib->spinInfo.numCpus = cpus;
-}
-
-uintptr_t
-omrthread_get_spin_heuristic(void)
-{
-	omrthread_library_t const lib = (omrthread_library_t)GLOBAL_DATA(default_library);
-	return lib->spinInfo.spinHeuristic;
-}
-
-void
-omrthread_set_spin_heuristic(const uintptr_t heuristic)
-{
-	omrthread_library_t const lib = (omrthread_library_t)GLOBAL_DATA(default_library);
-	lib->spinInfo.spinHeuristic = heuristic;
-}
-#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
