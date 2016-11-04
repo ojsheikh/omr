@@ -240,7 +240,7 @@ TR_InlinerBase::TR_InlinerBase(TR::Optimizer * optimizer, TR::Optimization *opti
      _aggressivelyInlineInLoops(false),
      _GlobalLabels(_trMemory)
    {
-   _policy = optimizer->getInlinerPolicy();
+   _policy = optimization->manager()->getOptPolicy() ? static_cast<OMR_InlinerPolicy*>(optimization->manager()->getOptPolicy()) : optimizer->getInlinerPolicy();
    _util = optimizer->getInlinerUtil();
    _policy->setInliner(this);
    _util->setInliner(this);
@@ -2141,7 +2141,7 @@ TR_InlinerBase::addGuardForVirtual(
        (guard->_kind == TR_HierarchyGuard))
       shouldAttemptOSR = false;
 
-   if (callerSymbol->supportsInduceOSR(callNode->getByteCodeInfo(), callNode, block1, calleeSymbol, comp()))
+   if (callerSymbol->supportsInduceOSR(callNode->getByteCodeInfo(), block1, calleeSymbol, comp()))
       {
       bool shouldUseOSR = heuristicForUsingOSR(callNode, calleeSymbol, callerSymbol, createdHCRAndVirtualGuard);
 
