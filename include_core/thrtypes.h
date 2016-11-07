@@ -85,13 +85,6 @@ typedef struct J9ThreadGlobal {
 	uintptr_t data;
 } J9ThreadGlobal;
 
-typedef struct OMRSpinInfo {
-        volatile uintptr_t numThreadsSpinning;
-        volatile uintptr_t numThreadsWaiting;
-        uintptr_t numCpus;
-        uintptr_t spinHeuristic;
-} OMRSpinInfo;
-
 typedef struct J9ThreadLibrary {
 	uintptr_t spinlock;
 	struct J9ThreadMonitorPool *monitor_pool;
@@ -156,9 +149,6 @@ typedef struct J9ThreadLibrary {
 #if !defined(WIN32) && defined(OMR_NOTIFY_POLICY_CONTROL)
 	uintptr_t notifyPolicy;
 #endif /* !defined(WIN32) && defined(OMR_NOTIFY_POLICY_CONTROL) */
-#if defined(OMR_DYNAMIC_SPIN_FEATURE)
-	OMRSpinInfo spinInfo;
-#endif /* defined(OMR_DYNAMIC_SPIN_FEATURE) */
 } J9ThreadLibrary;
 
 /*
