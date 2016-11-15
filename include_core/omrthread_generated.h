@@ -158,7 +158,6 @@ typedef struct J9ThreadMonitorTracing {
 #if defined(OMR_THR_THREE_TIER_LOCKING)
 #define J9_ABSTRACT_MONITOR_FIELDS_4 \
     uintptr_t spinlockState; \
-    uintptr_t lockingWord; \
     uintptr_t spinCount1; \
     uintptr_t spinCount2; \
     uintptr_t spinCount3; \
@@ -181,13 +180,21 @@ typedef struct J9ThreadMonitorTracing {
 #define J9_ABSTRACT_MONITOR_FIELDS_6
 #endif /* OMR_THR_CUSTOM_SPIN_OPTIONS */
 
+#if defined(OMR_THR_SPIN_WAKE_CONTROL) && defined(OMR_THR_THREE_TIER_LOCKING)
+#define J9_ABSTRACT_MONITOR_FIELDS_7 \
+	volatile uintptr_t spinThreads;
+#else /* defined(OMR_THR_SPIN_WAKE_CONTROL) && defined(OMR_THR_THREE_TIER_LOCKING) */
+#define J9_ABSTRACT_MONITOR_FIELDS_7
+#endif /* defined(OMR_THR_SPIN_WAKE_CONTROL) && defined(OMR_THR_THREE_TIER_LOCKING) */
+
 #define J9_ABSTRACT_MONITOR_FIELDS \
 	J9_ABSTRACT_MONITOR_FIELDS_1 \
 	J9_ABSTRACT_MONITOR_FIELDS_2 \
 	J9_ABSTRACT_MONITOR_FIELDS_3 \
 	J9_ABSTRACT_MONITOR_FIELDS_4 \
 	J9_ABSTRACT_MONITOR_FIELDS_5 \
-	J9_ABSTRACT_MONITOR_FIELDS_6
+	J9_ABSTRACT_MONITOR_FIELDS_6 \
+	J9_ABSTRACT_MONITOR_FIELDS_7
 
 
 /*

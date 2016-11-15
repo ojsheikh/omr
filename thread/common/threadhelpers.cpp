@@ -38,7 +38,7 @@ omrthread_monitor_unpin(omrthread_monitor_t monitor, omrthread_t self)
 #if defined(OMR_THR_THREE_TIER_LOCKING)
 
 /**
- * Spin on a monitor's lockingWord field until we can atomically swap out a value of SPINLOCK_UNOWNED
+ * Spin on a monitor's spinlockState field until we can atomically swap out a value of SPINLOCK_UNOWNED
  * for the value SPINLOCK_OWNED.
  *
  * @param[in] self the current omrthread_t
@@ -56,6 +56,18 @@ omrthread_spinlock_acquire(omrthread_t self, omrthread_monitor_t monitor)
 #if defined(OMR_THR_JLM)
 	J9ThreadMonitorTracing *tracing = (self->library->flags & J9THREAD_LIB_FLAG_JLM_ENABLED) ? monitor->tracing : NULL;
 #endif /* OMR_THR_JLM */
+
+#if defined(OMR_THR_SPIN_WAKE_CONTROL)
+	BOOLEAN spinning = FALSE;
+
+ 	if (monitor->spinThreads >= self->library->maxSpinThreads) {
+ 		result = -1;
+ 		goto done;
+ 	}
+
+	VM_AtomicSupport::add(&monitor->spinThreads, 1);
+	spinning = TRUE;
+#endif /* defined(OMR_THR_SPIN_WAKE_CONTROL) */
 
 	for (uintptr_t spinCount3 = monitor->spinCount3; spinCount3 > 0; spinCount3--) {
 		for (uintptr_t spinCount2 = monitor->spinCount2; spinCount2 > 0; spinCount2--) {
@@ -107,12 +119,17 @@ omrthread_spinlock_acquire(omrthread_t self, omrthread_monitor_t monitor)
 	}
 #endif /* OMR_THR_JLM */
 done:
+#if defined(OMR_THR_SPIN_WAKE_CONTROL)
+	if (spinning) {
+		VM_AtomicSupport::subtract(&monitor->spinThreads, 1);
+	}
+#endif /* defined(OMR_THR_SPIN_WAKE_CONTROL) */
 	return result;
 }
 
 /**
   * Try to atomically swap out a value of SPINLOCK_UNOWNED from
-  * a monitor's lockingWord field for the value SPINLOCK_OWNED.
+  * a monitor's spinlockState field for the value SPINLOCK_OWNED.
   *
   * @param[in] self the current omrthread_t
   * @param[in] monitor the monitor whose spinlock will be acquired
