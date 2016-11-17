@@ -1675,7 +1675,11 @@ void TR::ValuePropagation::checkTypeRelationship(TR::VPConstraint *lhs, TR::VPCo
       traceMsg(comp(), "   checking for relationship between types...\n");
 
    int32_t result = value;
-   TR_OpaqueClassBlock *jlKlass = comp()->getClassClassPointer();
+   TR_OpaqueClassBlock *jlKlass = NULL;
+
+#ifdef J9_PROJECT_SPECIFIC
+   jlKlass = comp()->getClassClassPointer();
+#endif   
 
    if (lhs->asClass() && rhs->asClass())
       {
@@ -7065,7 +7069,6 @@ TR::SymbolReference * TR::ValuePropagation::getStringCacheRef()
   TR_OpaqueClassBlock *stringClass = comp()->getStringClassPointer();
   TR::SymbolReference      *stringSymRef;
   methodSymbol = comp()->getOwningMethodSymbol(feMethod);
-  stringClass = comp()->getStringClassPointer();
   stringSymRef = comp()->getSymRefTab()->findOrCreateClassSymbol(methodSymbol, -1, stringClass);
   TR_ScratchList<TR_ResolvedMethod> stringMethods(comp()->trMemory());
   comp()->fej9()->getResolvedMethods(comp()->trMemory(), stringClass, &stringMethods);
@@ -7268,7 +7271,6 @@ void TR::ValuePropagation::doDelayedTransformations()
       transformConverterCall(converterCallTree);
       }
    _converterCalls.deleteAll();
-#endif
 
    ListIterator<TR::TreeTop> objCloneIt(&_objectCloneCalls);
    ListIterator<ObjCloneInfo> objCloneTypeIt(&_objectCloneTypes);
@@ -7299,6 +7301,7 @@ void TR::ValuePropagation::doDelayedTransformations()
       }
    _arrayCloneCalls.deleteAll();
    _arrayCloneTypes.deleteAll();
+#endif
 
    ListIterator<TR_TreeTopWrtBarFlag> treesIt(&_unknownTypeArrayCopyTrees);
    TR_TreeTopWrtBarFlag *unknownTypeArrayCopyTree;
