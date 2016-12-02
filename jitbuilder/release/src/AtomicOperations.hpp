@@ -14,28 +14,37 @@
  *
  * Contributors:
  *    Multiple authors (IBM Corp.) - initial implementation and documentation
- *******************************************************************************/
+ ******************************************************************************/
 
-#ifndef CODECACHEEXCEPTIONS_HPP
-#define CODECACHEEXCEPTIONS_HPP
 
-#pragma once
+#ifndef ATOMICOPS_INCL
+#define ATOMICOPS_IMPL
 
-#include <exception>
-#include <new>
+#include "ilgen/MethodBuilder.hpp"
 
-namespace TR {
+/**
+ * I created two methodBuilders for testing
+ * Int32 / Int64 atomicadd() respectively
+ */
 
-struct CodeCacheError : public virtual std::bad_alloc
+class AtomicInt32Add : public TR::MethodBuilder
    {
-   virtual const char* what() const throw() { return "Code Cache Error"; }
+   private:
+   TR::IlType *pInt32;
+
+   public:
+   AtomicInt32Add(TR::TypeDictionary *);
+   virtual bool buildIL();
    };
 
-struct RecoverableCodeCacheError : public virtual std::bad_alloc
-   {
-   virtual const char* what() const throw() { return "Recoverable Code Cache Error"; }
+class AtomicInt64Add : public TR::MethodBuilder
+   {   
+   private:
+   TR::IlType *pInt64;
+
+   public:
+   AtomicInt64Add(TR::TypeDictionary *); 
+   virtual bool buildIL();
    };
 
-}
-
-#endif // CODECACHEEXCEPTIONS_HPP
+#endif // !defined(ATOMICOPS_INCL)
