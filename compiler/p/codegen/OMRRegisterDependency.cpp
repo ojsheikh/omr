@@ -96,7 +96,7 @@ TR::RegisterDependencyConditions* TR_PPCScratchRegisterDependencyConditions::cre
       dependencies->addPostCondition(post->_ccrDeps[i].getRegister(), post->_ccrDeps[i].getRealRegister(), post->_ccrDeps[i].getFlags());
       }
 
-   const TR_PPCLinkageProperties& properties = cg->getLinkage()->getProperties();
+   const TR::PPCLinkageProperties& properties = cg->getLinkage()->getProperties();
    if (liveVSXVectorReg)
       {
       for (int32_t i=TR::RealRegister::FirstVSR; i<=TR::RealRegister::LastVSR; i++)
@@ -130,83 +130,6 @@ TR::RegisterDependencyConditions* TR_PPCScratchRegisterDependencyConditions::cre
    return dependencies;
    }
 
-// Small helper class to speedup queries
-// Maps real register numbers to dependencies/virtuals
-const uint8_t MAP_NIL = 255;
-class TR_PPCRegisterDependencyMap
-   {
-   private:
-   TR::RegisterDependency *deps;
-   uint8_t targetTable[TR::RealRegister::NumRegisters];
-   uint8_t assignedTable[TR::RealRegister::NumRegisters];
-
-   public:
-   // NOTE:
-   // No TR_Memory type defined for this class
-   // since current is as a stack-alloc'd object.
-   // To heap-alloc, update the class def with something like:
-   //    TR_ALLOC(TR_Memory::PPCRegisterDependencyMap)
-   TR_PPCRegisterDependencyMap(TR::RegisterDependency *deps, uint32_t numDeps)
-      : deps(deps)
-      {
-      TR_ASSERT(numDeps <= MAP_NIL, "Too many dependencies for this LUT");
-      for (uint32_t i = 0; i < TR::RealRegister::NumRegisters; ++i)
-         {
-         targetTable[i] = MAP_NIL;
-         assignedTable[i] = MAP_NIL;
-         }
-      }
-
-   // Initialize the LUTs using this (we don't do it in the ctor because
-   // in many places we already traverse the dep list and we can call
-   // this method there and save an extra loop).
-   void addDependency(TR::RegisterDependency& dep, uint32_t index)
-      {
-      TR_ASSERT(&deps[index] == &dep, "Dep pointer/index mismatch");
-      TR::RealRegister::RegNum rr = dep.getRealRegister();
-      if (rr != TR::RealRegister::NoReg && rr != TR::RealRegister::SpilledReg)
-         {
-         TR_ASSERT(rr >= 0 && rr < TR::RealRegister::NumRegisters, "Register number %d used as index but out of range", rr);
-         TR_ASSERT(targetTable[rr] == MAP_NIL || // TODO: Figure out where the same dep is being added more than once!
-                deps[targetTable[rr]].getRegister() == deps[index].getRegister(),
-                "Multiple virtual registers depend on a single real register %d", rr);
-         targetTable[rr] = index;
-         }
-      TR::RealRegister *assignedReg = dep.getRegister()->getAssignedRealRegister();
-      if (assignedReg)
-         {
-         rr = toRealRegister(assignedReg)->getRegisterNumber();
-         TR_ASSERT(rr >= 0 && rr < TR::RealRegister::NumRegisters, "Register number %d used as index but out of range", rr);
-         TR_ASSERT(assignedTable[rr] == MAP_NIL || // TODO: Figure out where the same dep is being added more than once!
-                deps[assignedTable[rr]].getRegister() == deps[index].getRegister(),
-                "Multiple virtual registers assigned to a single real register %d", rr);
-         assignedTable[rr] = index;
-         }
-      }
-
-   TR::RegisterDependency* getDependencyWithTarget(TR::RealRegister::RegNum rr)
-      {
-      TR_ASSERT(rr >= 0 && rr < TR::RealRegister::NumRegisters, "Register number used as index but out of range");
-      TR_ASSERT(rr != TR::RealRegister::NoReg, "Multiple dependencies can map to 'NoReg', can't return just one");
-      TR_ASSERT(rr != TR::RealRegister::SpilledReg, "Multiple dependencies can map to 'SpilledReg', can't return just one");
-      return targetTable[rr] != MAP_NIL ? &deps[targetTable[rr]] : NULL;
-      }
-   TR::Register* getVirtualWithTarget(TR::RealRegister::RegNum rr)
-      {
-      TR::RegisterDependency *d = getDependencyWithTarget(rr);
-      return d ? d->getRegister() : NULL;
-      }
-   TR::RegisterDependency* getDependencyWithAssigned(TR::RealRegister::RegNum rr)
-      {
-      TR_ASSERT(rr >= 0 && rr < TR::RealRegister::NumRegisters, "Register number used as index but out of range");
-      return assignedTable[rr] != MAP_NIL ? &deps[assignedTable[rr]] : NULL;
-      }
-   TR::Register* getVirtualWithAssigned(TR::RealRegister::RegNum rr)
-      {
-      TR::RegisterDependency *d = getDependencyWithAssigned(rr);
-      return d ? d->getRegister() : NULL;
-      }
-   };
 
 OMR::Power::RegisterDependencyConditions::RegisterDependencyConditions(
                                        TR::CodeGenerator *cg,
@@ -233,7 +156,7 @@ OMR::Power::RegisterDependencyConditions::RegisterDependencyConditions(
 
       if (reg!=NULL /* && reg->getKind()==TR_GPR */)
 	 {
-	 if (TR::Compiler->target.is32Bit() && child->getType().isInt64())
+	 if (child->getHighGlobalRegisterNumber() > -1)
 	    numLongs++;
 	 }
       }
@@ -257,7 +180,7 @@ OMR::Power::RegisterDependencyConditions::RegisterDependencyConditions(
 
       TR::RealRegister::RegNum highRegNum;
 
-      if (TR::Compiler->target.is32Bit() && child->getType().isInt64())
+      if (child->getHighGlobalRegisterNumber() > -1)
          {
          highRegNum = (TR::RealRegister::RegNum)cg->getGlobalRegister(child->getHighGlobalRegisterNumber());
 
@@ -302,7 +225,7 @@ OMR::Power::RegisterDependencyConditions::RegisterDependencyConditions(
 
       TR::RealRegister::RegNum highRegNum;
 
-      if (TR::Compiler->target.is32Bit() && child->getType().isInt64())
+      if (child->getHighGlobalRegisterNumber() > -1)
          {
          highRegNum = (TR::RealRegister::RegNum)cg->getGlobalRegister(child->getHighGlobalRegisterNumber());
          TR::RegisterPair *regPair = reg->getRegisterPair();

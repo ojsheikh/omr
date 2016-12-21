@@ -69,7 +69,7 @@ namespace TR { class X86LabelInstruction;       }
 namespace TR { class X86MemTableInstruction;    }
 namespace TR { class X86ScratchRegisterManager; }
 namespace TR { class X86VFPSaveInstruction;     }
-struct TR_X86LinkageProperties;
+namespace TR { struct X86LinkageProperties; }
 
 namespace TR {
 
@@ -237,6 +237,8 @@ struct TR_X86ProcessorInfo
    bool supportsSFence()                   {return _featureFlags.testAny(TR_SSE | TR_MMXInstructions);}
    bool prefersMultiByteNOP()              {return getX86Architecture() && isGenuineIntel() && !isIntelPentium();}
 
+   bool supportsAtomicAdd()                {return true;} //we have common helpers for atomic primitives
+
    uint32_t getCPUStepping(uint32_t signature)       {return (signature & CPUID_SIGNATURE_STEPPING_MASK);}
    uint32_t getCPUModel(uint32_t signature)          {return (signature & CPUID_SIGNATURE_MODEL_MASK) >> 4;}
    uint32_t getCPUFamily(uint32_t signature)         {return (signature & CPUID_SIGNATURE_FAMILY_MASK) >> 8;}
@@ -351,6 +353,7 @@ class OMR_EXTENSIBLE CodeGenerator : public OMR::CodeGenerator
    bool hasComplexAddressingMode() { return true; }
    bool getSupportsBitOpCodes() { return true; }
 
+   bool getSupportsOpCodeForAutoSIMD(TR::ILOpCode, TR::DataType);
    bool getSupportsEncodeUtf16LittleWithSurrogateTest();
    bool getSupportsEncodeUtf16BigWithSurrogateTest();
 
@@ -369,7 +372,7 @@ class OMR_EXTENSIBLE CodeGenerator : public OMR::CodeGenerator
    TR::Register *floatClobberEvaluate(TR::Node *node);
    TR::Register *doubleClobberEvaluate(TR::Node *node);
 
-   const TR_X86LinkageProperties &getProperties() { return *_linkageProperties; }
+   const TR::X86LinkageProperties &getProperties() { return *_linkageProperties; }
 
    RegisterAssignmentDirection getAssignmentDirection() {return _assignmentDirection;}
    RegisterAssignmentDirection setAssignmentDirection(RegisterAssignmentDirection d)
@@ -617,6 +620,8 @@ class OMR_EXTENSIBLE CodeGenerator : public OMR::CodeGenerator
 
    virtual void simulateNodeEvaluation (TR::Node *node, TR_RegisterPressureState *state, TR_RegisterPressureSummary *summary);
 
+   bool isFPRUsedAsVRF() { return _targetProcessorInfo.supportsSSE2(); }
+
    protected:
 
    CodeGenerator();
@@ -640,7 +645,7 @@ class OMR_EXTENSIBLE CodeGenerator : public OMR::CodeGenerator
    static TR_X86PaddingTable _old32BitPaddingTable;
 
    TR::X86ImmInstruction *_returnTypeInfoInstruction;
-   const TR_X86LinkageProperties  *_linkageProperties;
+   const TR::X86LinkageProperties  *_linkageProperties;
 
    private:
 

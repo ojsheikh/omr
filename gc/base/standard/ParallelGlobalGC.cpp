@@ -1166,6 +1166,15 @@ MM_ParallelGlobalGC::isMarked(void *objectPtr)
 }
 
 void
+MM_ParallelGlobalGC::completeConcurrentCycle(MM_EnvironmentBase *env)
+{
+#if defined(OMR_GC_CONCURRENT_SCAVENGER)
+	/* ParallelGlobalGC or ConcurrentGC (STW phase) cannot start before Concurrent Scavenger cycle is in progress */
+	_extensions->scavenger->completeConcurrentScavenger(env);
+#endif
+}
+
+void
 MM_ParallelGlobalGC::reportGCCycleStart(MM_EnvironmentBase *env)
 {
 	OMRPORT_ACCESS_FROM_ENVIRONMENT(env);
@@ -1283,6 +1292,9 @@ MM_ParallelGlobalGC::reportGCIncrementEnd(MM_EnvironmentBase *env)
 		stats->_endTime,
 		J9HOOK_MM_PRIVATE_GC_INCREMENT_END,
 		stats);
+
+	/* reset fragmentation indicator after reporting fragmentation */
+	stats->_tenureFragmentation = NO_FRAGMENTATION;
 }
 
 void

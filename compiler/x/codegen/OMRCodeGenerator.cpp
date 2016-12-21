@@ -498,17 +498,17 @@ OMR::X86::CodeGenerator::createLinkage(TR_LinkageConventions lc)
          if (TR::Compiler->target.isLinux() || TR::Compiler->target.isOSX())
             {
 #if defined(TR_TARGET_64BIT)
-            linkage = new (self()->trHeapMemory()) TR_AMD64ABILinkage(self());
+            linkage = new (self()->trHeapMemory()) TR::AMD64ABILinkage(self());
 #else
-            linkage = new (self()->trHeapMemory()) TR_IA32SystemLinkage(self());
+            linkage = new (self()->trHeapMemory()) TR::IA32SystemLinkage(self());
 #endif
             }
          else if (TR::Compiler->target.isWindows())
             {
 #if defined(TR_TARGET_64BIT)
-            linkage = new (self()->trHeapMemory()) TR_AMD64Win64FastCallLinkage(self());
+            linkage = new (self()->trHeapMemory()) TR::AMD64Win64FastCallLinkage(self());
 #else
-            linkage = new (self()->trHeapMemory()) TR_IA32SystemLinkage(self());
+            linkage = new (self()->trHeapMemory()) TR::IA32SystemLinkage(self());
 #endif
             }
          else
@@ -965,6 +965,39 @@ bool OMR::X86::CodeGenerator::enableAESInHardwareTransformations()
 
 #undef ALLOWED_TO_REMATERIALIZE
 #undef CAN_REMATERIALIZE
+
+bool
+OMR::X86::CodeGenerator::getSupportsOpCodeForAutoSIMD(TR::ILOpCode opcode, TR::DataType dt)
+   {
+   /*
+    * This is a place holder function. It currently always returns false because none of the SIMD evaluators for OpCodes used
+    * in AutoSIMD have been implemented.
+    * This should be filled in (and this comment updated) as support for SIMD evaluators is implemented.
+    */
+   // implemented vector opcodes
+   switch (opcode.getOpCodeValue())
+      {
+      case TR::vadd:
+      case TR::vsub:
+      case TR::vmul:
+      case TR::vdiv:
+      case TR::vrem:
+      case TR::vneg:
+      case TR::vload:
+      case TR::vloadi:
+      case TR::vstore:
+      case TR::vstorei:
+      case TR::vxor:
+      case TR::vor:
+      case TR::vand:
+      case TR::vsplats:
+      case TR::getvelem:
+      default:
+         return false;
+      }
+
+   return false;
+   }
 
 
 bool
@@ -1545,7 +1578,7 @@ void OMR::X86::CodeGenerator::doRegisterAssignment(TR_RegisterKinds kindsToAssig
    LexicalTimer pt2("GP register assignment", self()->comp()->phaseTimer());
    // Assign GPRs and XMMRs in a backward pass
    //
-   kindsToAssign = TR_RegisterKinds(kindsToAssign & (TR_GPR_Mask | TR_FPR_Mask));
+   kindsToAssign = TR_RegisterKinds(kindsToAssign & (TR_GPR_Mask | TR_FPR_Mask | TR_VRF_Mask));
    if (kindsToAssign)
       {
       self()->getVMThreadRegister()->setFutureUseCount(self()->getVMThreadRegister()->getTotalUseCount());
