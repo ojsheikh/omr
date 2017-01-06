@@ -32,9 +32,13 @@ localarray
 structarray
 mandelbrot
 nestedloop
+operandstacktests
 pointer
 pow2
 recfib
 simple
 switch
+thunks
 toiltype
+transactionaloperations
+worklist

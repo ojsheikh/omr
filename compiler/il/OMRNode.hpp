@@ -333,7 +333,6 @@ private:
       TR::ILOpCode opcode; opcode.setOpCodeValue(opvalue);
       TR_ASSERT(!opcode.isIf(), "use createif or createbranch on this node\n");
       TR_ASSERT(opvalue != TR::arraycopy, "use createArraycopy to create this node");
-      TR_ASSERT(opvalue != TR::tstart, "use createWithRoomForFive to create node: %s", opcode.getName());
       TR_ASSERT(opvalue != TR::v2v, "use createVectorConversion to create node: %s", opcode.getName());
       TR_ASSERT(opvalue != TR::vconst, "use createVectorConst to create node: %s", opcode.getName());
       return true;
@@ -837,8 +836,8 @@ public:
    void *                  getMonitorInfo();
    void *                  setMonitorInfo(void *info);
 
-   TR::ILOpCodes           getOverflowCHKOperation();
-   TR::ILOpCodes           setOverflowCHKOperation(TR::ILOpCodes op);
+   TR::ILOpCodes           getOverflowCheckOperation();
+   TR::ILOpCodes           setOverflowCheckOperation(TR::ILOpCodes op);
    /**
     * UnionBase functions end
     */

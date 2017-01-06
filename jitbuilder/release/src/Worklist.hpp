@@ -17,16 +17,16 @@
  ******************************************************************************/
 
 
-#ifndef SIMPLE_INCL
-#define SIMPLE_INCL
+#ifndef WORKLIST_INCL
+#define WORKLIST_INCL
 
 #include "ilgen/MethodBuilder.hpp"
 
-class SimpleMethod : public TR::MethodBuilder
+class WorklistMethod : public TR::MethodBuilder
    {
    public:
-   SimpleMethod(TR::TypeDictionary *);
+   WorklistMethod(TR::TypeDictionary *);
    virtual bool buildIL();
    };
 
-#endif // !defined(SIMPLE_INCL)
+#endif // !defined(WORKLIST_INCL)

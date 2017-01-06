@@ -127,6 +127,7 @@ public:
    TR::Block *getExit()  { return _exitBlock; }
 
    void setDoesNotComeBack() { _comesBack = false; }
+   void setComesBack()       { _comesBack = true; }
    bool comesBack()          { return _comesBack; }
 
    bool blocksHaveBeenCounted() { return _count > -1; }
@@ -164,10 +165,10 @@ public:
    // arithmetic
    TR::IlValue *Add(TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *AddWithOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlValue *right);
-   TR::IlValue *UnsignedAddWithOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlValue *right);
+   TR::IlValue *AddWithUnsignedOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *Sub(TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *SubWithOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlValue *right);
-   TR::IlValue *UnsignedSubWithOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlValue *right);
+   TR::IlValue *SubWithUnsignedOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *Mul(TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *MulWithOverflow(TR::IlBuilder **handler, TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *Div(TR::IlValue *left, TR::IlValue *right);
@@ -183,8 +184,11 @@ public:
    TR::IlValue *NotEqualTo(TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *EqualTo(TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *LessThan(TR::IlValue *left, TR::IlValue *right);
+   TR::IlValue *LessOrEqualTo(TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *GreaterThan(TR::IlValue *left, TR::IlValue *right);
+   TR::IlValue *GreaterOrEqualTo(TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *ConvertTo(TR::IlType *t, TR::IlValue *v);
+   TR::IlValue *UnsignedConvertTo(TR::IlType *t, TR::IlValue *v);
 
    // memory
    TR::IlValue *CreateLocalArray(int32_t numElements, TR::IlType *elementType);
@@ -198,6 +202,8 @@ public:
    TR::IlValue *IndexAt(TR::IlType *dt, TR::IlValue *base, TR::IlValue *index);
    TR::IlValue *AtomicAddWithOffset(TR::IlValue *baseAddress, TR::IlValue *offset, TR::IlValue *value);
    TR::IlValue *AtomicAdd(TR::IlValue *baseAddress, TR::IlValue * value);
+   void Transaction(TR::IlBuilder **persistentFailureBuilder, TR::IlBuilder **transientFailureBuilder, TR::IlBuilder **fallThroughBuilder);
+   void TransactionAbort();
    
    // vector memory
    TR::IlValue *VectorLoad(const char *name);
@@ -297,8 +303,12 @@ public:
    void IfCmpEqual(TR::IlBuilder *target, TR::IlValue *left, TR::IlValue *right);
    void IfCmpLessThan(TR::IlBuilder **target, TR::IlValue *left, TR::IlValue *right);
    void IfCmpLessThan(TR::IlBuilder *target, TR::IlValue *left, TR::IlValue *right);
+   void IfCmpLessOrEqual(TR::IlBuilder **target, TR::IlValue *left, TR::IlValue *right);
+   void IfCmpLessOrEqual(TR::IlBuilder *target, TR::IlValue *left, TR::IlValue *right);
    void IfCmpGreaterThan(TR::IlBuilder **target, TR::IlValue *left, TR::IlValue *right);
    void IfCmpGreaterThan(TR::IlBuilder *target, TR::IlValue *left, TR::IlValue *right);
+   void IfCmpGreaterOrEqual(TR::IlBuilder **target, TR::IlValue *left, TR::IlValue *right);
+   void IfCmpGreaterOrEqual(TR::IlBuilder *target, TR::IlValue *left, TR::IlValue *right);
 
    void IfThenElse(TR::IlBuilder **thenPath,
                    TR::IlBuilder **elsePath,
@@ -359,13 +369,18 @@ protected:
    TR::IlValue *binaryOpFromOpMap(OpCodeMapper mapOp, TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *binaryOpFromOpCode(TR::ILOpCodes op, TR::IlValue *left, TR::IlValue *right);
    TR::IlValue *compareOp(TR_ComparisonTypes ct, bool needUnsigned, TR::IlValue *left, TR::IlValue *right);
+   TR::IlValue *convertTo(TR::IlType *t, TR::IlValue *v, bool needUnsigned);
 
    void ifCmpNotEqualZero(TR::IlValue *condition, TR::Block *target);
    void ifCmpNotEqual(TR::IlValue *condition, TR::IlValue *zero, TR::Block *target);
    void ifCmpEqualZero(TR::IlValue *condition, TR::Block *target);
    void ifCmpEqual(TR::IlValue *condition, TR::IlValue *zero, TR::Block *target);
    void ifCmpLessThan(TR::IlValue *condition, TR::IlValue *zero, TR::Block *target);
+   void ifCmpLessOrEqual(TR::IlValue *condition, TR::IlValue *zero, TR::Block *target);
    void ifCmpGreaterThan(TR::IlValue *condition, TR::IlValue *zero, TR::Block *target);
+   void ifCmpGreaterOrEqual(TR::IlValue *condition, TR::IlValue *zero, TR::Block *target);
+
+   void integerizeAddresses(TR::IlValue **leftPtr, TR::IlValue **rightPtr);
 
    void appendGoto(TR::Block *destBlock);
 
@@ -389,9 +404,10 @@ protected:
 
    virtual bool connectTrees();
 
-   TR::Node *genOverflowCHKTreeTop(TR::Node *operationNode);
+   TR::Node *genOverflowCHKTreeTop(TR::Node *operationNode, TR::ILOpCodes overflow);
+   TR::ILOpCodes getOpCode(TR::IlValue *leftValue, TR::IlValue *rightValue);
    void appendExceptionHandler(TR::Block *blockThrowsException, TR::IlBuilder **builder, uint32_t catchType);
-   TR::IlValue *operationWithOverflow(TR::ILOpCodes op, TR::Node *leftNode, TR::Node *rightNode, TR::IlBuilder **handler);
+   TR::IlValue *genOperationWithOverflowCHK(TR::ILOpCodes op, TR::Node *leftNode, TR::Node *rightNode, TR::IlBuilder **handler, TR::ILOpCodes overflow);
    virtual void setHandlerInfo(uint32_t catchType);
    TR::IlValue **processCallArgs(TR::Compilation *comp, int numArgs, va_list args);
    };

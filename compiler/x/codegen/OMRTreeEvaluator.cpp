@@ -2431,7 +2431,31 @@ TR::Register *OMR::X86::TreeEvaluator::andORStringEvaluator(TR::Node *node, TR::
    return resultReg;
    }
 
-TR::Register *OMR::X86::TreeEvaluator::OverflowCHKEvaluator(TR::Node *node, TR::CodeGenerator *cg)
+TR::Block *OMR::X86::TreeEvaluator::getOverflowCatchBlock(TR::Node *node, TR::CodeGenerator *cg)
+   {
+   //make sure the overflowCHK has a catch block first
+   TR::Block *overflowCatchBlock = NULL;
+   TR::list<TR::CFGEdge*> excepSucc =cg->getCurrentEvaluationTreeTop()->getEnclosingBlock()->getExceptionSuccessors();
+   for (auto e = excepSucc.begin(); e != excepSucc.end(); ++e) 
+      {    
+      TR::Block *dest = toBlock((*e)->getTo());
+      if (dest->getCatchBlockExtension()->_catchType == TR::Block::CanCatchOverflowCheck)
+            overflowCatchBlock = dest;
+      }    
+   TR_ASSERT(overflowCatchBlock != NULL, "OverflowChk node %p doesn't have overflow catch block\n", node);
+
+   //the BBStartEvaluator will generate the label but in this case the catch block might not been evaluated yet
+   TR::Node * bbstartNode = overflowCatchBlock->getEntry()->getNode();
+   TR_ASSERT((bbstartNode->getOpCodeValue() == TR::BBStart), "catch block entry %p must be TR::BBStart\n", bbstartNode);
+   if (!bbstartNode->getLabel())
+      {
+      TR::LabelSymbol *label = generateLabelSymbol(cg);
+      bbstartNode->setLabel(label);
+      }
+   return overflowCatchBlock;
+   }
+
+void OMR::X86::TreeEvaluator::genArithmeticInstructionsForOverflowCHK(TR::Node *node, TR::CodeGenerator *cg)
    {   
    /*
     *overflowCHK
@@ -2447,7 +2471,7 @@ TR::Register *OMR::X86::TreeEvaluator::OverflowCHKEvaluator(TR::Node *node, TR::
    //it is fine that nodeIs64Bit is false for long operand on 32bits platform because
    //the analyzers below don't use *op* in this case anyways
    bool nodeIs64Bit = TR::Compiler->target.is32Bit()? false: TR::TreeEvaluator::getNodeIs64Bit(operand1, cg);
-   switch (node->getOverflowCHKOperation())
+   switch (node->getOverflowCheckOperation())
       {
       //add group
       case TR::ladd:
@@ -2463,16 +2487,12 @@ TR::Register *OMR::X86::TreeEvaluator::OverflowCHKEvaluator(TR::Node *node, TR::
       //sub group
       case TR::lsub:
       case TR::isub:
-      case TR::lusub:
-      case TR::iusub:
          op = SUBRegReg(nodeIs64Bit);
          break;
       case TR::ssub:
-      case TR::csub:
          op = SUB2RegReg;
          break;
       case TR::bsub:
-      case TR::busub:
          op = SUB1RegReg;
          break;
       //mul group
@@ -2493,17 +2513,6 @@ TR::Register *OMR::X86::TreeEvaluator::OverflowCHKEvaluator(TR::Node *node, TR::
          TR_ASSERT(0 , "unsupported OverflowCHK opcode %s on node %p\n", cg->comp()->getDebug()->getName(node->getOpCode()), node);
       }
 
-   //make sure the overflowCHK has a catch block first
-   TR::Block *overflowCatchBlock = NULL;
-   TR::list<TR::CFGEdge*> excepSucc =cg->getCurrentEvaluationTreeTop()->getEnclosingBlock()->getExceptionSuccessors();
-   for (auto e = excepSucc.begin(); e != excepSucc.end(); ++e)
-      {
-      TR::Block *dest = toBlock((*e)->getTo());
-      if (dest->getCatchBlockExtension()->_catchType == TR::Block::CanCatchOverflowCheck)
-            overflowCatchBlock = dest;
-      }
-   TR_ASSERT(overflowCatchBlock != NULL, "OverflowChk node %p doesn't have overflow catch block\n", node);
-
    bool operationChildEvaluatedAlready = operationNode->getRegister()? true : false;
    if (!operationChildEvaluatedAlready)
       {
@@ -2515,13 +2524,13 @@ TR::Register *OMR::X86::TreeEvaluator::OverflowCHKEvaluator(TR::Node *node, TR::
    else 
    // we need to do the operation again when the Operation node has been evaluated already under a different treetop
    // TODO: there is still a chance that the flags might still be avaiable and we could detect it and avoid repeating
-   // the operantion 
+   // the operation 
       {
       TR_X86BinaryCommutativeAnalyser  addMulAnalyser(cg);
       TR_X86SubtractAnalyser subAnalyser(cg);
       node->setNodeRequiresConditionCodes(true);
       bool needsEflags = true;
-      switch (node->getOverflowCHKOperation())
+      switch (node->getOverflowCheckOperation())
          {
          // add group
          case TR::badd:
@@ -2535,17 +2544,13 @@ TR::Register *OMR::X86::TreeEvaluator::OverflowCHKEvaluator(TR::Node *node, TR::
             break;
          // sub group
          case TR::bsub:
-	 case TR::busub:
             subAnalyser.integerSubtractAnalyserWithExplicitOperands(node, operand1, operand2, op, BADIA32Op, MOV1RegReg, needsEflags);
             break;
          case TR::ssub:
          case TR::isub:
-	 case TR::csub:
-	 case TR::iusub:
             subAnalyser.integerSubtractAnalyserWithExplicitOperands(node, operand1, operand2, op, BADIA32Op, MOV4RegReg, needsEflags);
             break;
          case TR::lsub:
-	 case TR::lusub:
             TR::Compiler->target.is32Bit() ? subAnalyser.longSubtractAnalyserWithExplicitOperands(node, operand1, operand2) 
                                            : subAnalyser.integerSubtractAnalyserWithExplicitOperands(node, operand1, operand2, op, BADIA32Op, MOV8RegReg, needsEflags);
             break;
@@ -2560,34 +2565,22 @@ TR::Register *OMR::X86::TreeEvaluator::OverflowCHKEvaluator(TR::Node *node, TR::
       }
 
    cg->setVMThreadRequired(true);
-   //the BBStartEvaluator will generate the label but in this case the catch block might not been evaluated yet
-   TR::Node * bbstartNode = overflowCatchBlock->getEntry()->getNode();
-   TR_ASSERT((bbstartNode->getOpCodeValue() == TR::BBStart), "catch block entry %p must be TR::BBStart\n", bbstartNode);
-   if (!bbstartNode->getLabel()) 
-      {
-      TR::LabelSymbol *label = generateLabelSymbol(cg);
-      bbstartNode->setLabel(label);
-      }
-
-   bool isUnsigned = false;
-   switch (node->getOverflowCHKOperation())
-   {
-       case TR::buadd:
-       case TR::cadd:
-       case TR::iuadd:
-       case TR::luadd:
-       case TR::busub:
-       case TR::csub:
-       case TR::iusub:
-       case TR::lusub:
-           isUnsigned = true;
-           break;
    }
 
-   TR_X86OpCodes opcode = isUnsigned? JB4: JO4; 
+TR::Register *OMR::X86::TreeEvaluator::overflowCHKEvaluator(TR::Node *node, TR::CodeGenerator *cg)
+   {
+   TR_X86OpCodes opcode;
+   if (node->getOpCodeValue() == TR::OverflowCHK)
+       opcode = JO4; 
+   else if (node->getOpCodeValue() == TR::UnsignedOverflowCHK)
+       opcode = JB4; 
+   else 
+       TR_ASSERT(0, "unrecognized overflow operation in overflowCHKEvaluator");
+   TR::Block *overflowCatchBlock = TR::TreeEvaluator::getOverflowCatchBlock(node, cg);
+   TR::TreeEvaluator::genArithmeticInstructionsForOverflowCHK(node, cg);
    generateLabelInstruction(opcode, node, overflowCatchBlock->getEntry()->getNode()->getLabel(), cg);
    cg->setVMThreadRequired(false);
-   cg->decReferenceCount(operationNode);
+   cg->decReferenceCount(node->getFirstChild());
    return NULL;
    }
 
@@ -3292,6 +3285,7 @@ TR::Register *OMR::X86::TreeEvaluator::arraytranslateEvaluator(TR::Node *node, T
    TR_RuntimeHelper helper ;
    if (sourceByte)
       {
+      
       TR_ASSERT(!node->isTargetByteArrayTranslate(), "Both source and target are byte for array translate");
       if (arraytranslateOT)
       {
@@ -4776,6 +4770,152 @@ TR::Register *OMR::X86::TreeEvaluator::atomicorEvaluator(TR::Node *node, TR::Cod
 
    mr->decNodeReferenceCounts(cg);
    cg->decReferenceCount(valueChild);
+   return NULL;
+   }
+
+TR::Register *                                                                                                                                                             
+OMR::X86::TreeEvaluator::tstartEvaluator(TR::Node *node, TR::CodeGenerator *cg)                                                                                             
+   {                                                                                                                                                                       
+   /*         
+   .Lstart:
+      xbegin       .Lfallback
+      jmp          .LfallThrough
+   .Lfallback:
+      test         eax, 0x2
+      jne          .Ltransient
+      jmp          .Lpersistent
+   .Lend:  
+   */                                                                                                                                                                      
+   TR::Node *persistentFailureNode = node->getFirstChild();
+   TR::Node *transientFailureNode = node->getSecondChild();                                                                                                                
+   TR::Node *fallThroughNode = node->getThirdChild();
+   TR::Node *GRANode = NULL;                                                                                                                                               
+                                                                                                                                                                           
+   TR::LabelSymbol *startLabel = TR::LabelSymbol::create(cg->trHeapMemory(),cg);                                                                                           
+   startLabel->setStartInternalControlFlow();                                                                                                                              
+   TR::LabelSymbol *endLabel = TR::LabelSymbol::create(cg->trHeapMemory(),cg);                                                                                             
+   endLabel->setEndInternalControlFlow();                                                                                                                                  
+                    
+   TR::LabelSymbol *fallbackLabel = TR::LabelSymbol::create(cg->trHeapMemory(),cg);                                                                                    
+   TR::LabelSymbol *persistentFailureLabel = persistentFailureNode->getBranchDestination()->getNode()->getLabel();                                                         
+   TR::LabelSymbol *transientFailureLabel  = transientFailureNode->getBranchDestination()->getNode()->getLabel();     
+   TR::LabelSymbol *fallThroughLabel = fallThroughNode->getBranchDestination()->getNode()->getLabel();    
+
+   //if LabelSymbol isn't ready yet, generate a new one and assign to the node.
+   if(!fallThroughLabel){
+      fallThroughLabel = generateLabelSymbol(cg); 
+      fallThroughNode->getBranchDestination()->getNode()->setLabel(fallThroughLabel);
+   }         
+
+   if(!transientFailureLabel){
+       transientFailureLabel = generateLabelSymbol(cg); 
+       transientFailureNode->getBranchDestination()->getNode()->setLabel(transientFailureLabel);
+   }                                
+  
+   //in case user will make transientFailure goto persistenFailure, in which case the label will mess up at this point
+   //we'd better re-generate the label and set it to persistentFailure node again.
+   if(!persistentFailureLabel || persistentFailureLabel != persistentFailureNode->getBranchDestination()->getNode()->getLabel()){
+      persistentFailureLabel = generateLabelSymbol(cg);  
+      persistentFailureNode->getBranchDestination()->getNode()->setLabel(persistentFailureLabel);
+   }     
+       
+   TR::Register *accReg = cg->allocateRegister();                                                                                                                          
+   TR::RegisterDependencyConditions *endLabelConditions;
+   TR::RegisterDependencyConditions *fallThroughConditions = NULL;
+   TR::RegisterDependencyConditions *persistentConditions = NULL;
+   TR::RegisterDependencyConditions *transientConditions = NULL;
+
+   if (fallThroughNode->getNumChildren() != 0)
+      {
+      GRANode = fallThroughNode->getFirstChild();
+      cg->evaluate(GRANode);
+      List<TR::Register> popRegisters(cg->trMemory());
+      fallThroughConditions = generateRegisterDependencyConditions(GRANode, cg, 0, &popRegisters);
+      cg->decReferenceCount(GRANode);
+      }
+
+   if (persistentFailureNode->getNumChildren() != 0)
+      {
+      GRANode = persistentFailureNode->getFirstChild();
+      cg->evaluate(GRANode);
+      List<TR::Register> popRegisters(cg->trMemory());
+      persistentConditions = generateRegisterDependencyConditions(GRANode, cg, 0, &popRegisters);
+      cg->decReferenceCount(GRANode);
+      }
+
+   if (transientFailureNode->getNumChildren() != 0)
+      {
+      GRANode = transientFailureNode->getFirstChild();
+      cg->evaluate(GRANode);
+      List<TR::Register> popRegisters(cg->trMemory());
+      transientConditions = generateRegisterDependencyConditions(GRANode, cg, 0, &popRegisters);
+      cg->decReferenceCount(GRANode);
+      }
+
+   //startLabel
+   //add place holder register so that eax would not contain any useful value before xbegin
+   TR::Register *dummyReg = cg->allocateRegister();
+   dummyReg->setPlaceholderReg();
+   TR::RegisterDependencyConditions *startLabelConditions = generateRegisterDependencyConditions((uint8_t)0, 1, cg);
+   startLabelConditions->addPostCondition(dummyReg, TR::RealRegister::eax, cg);
+   startLabelConditions->stopAddingConditions();
+   cg->stopUsingRegister(dummyReg);
+   generateLabelInstruction(LABEL, node, startLabel, startLabelConditions, cg);
+
+   //xbegin, if fallback then go to fallbackLabel
+   generateLongLabelInstruction(XBEGIN4, node, fallbackLabel, cg);  
+
+   //jump to  fallThrough Path
+   if (fallThroughConditions)
+      generateLabelInstruction(JMP4, node, fallThroughLabel, fallThroughConditions, cg);
+   else
+      generateLabelInstruction(JMP4, node, fallThroughLabel, cg);
+
+   endLabelConditions = generateRegisterDependencyConditions((uint8_t)0, 1, cg);
+   endLabelConditions->addPostCondition(accReg, TR::RealRegister::eax, cg);
+   endLabelConditions->stopAddingConditions();
+  
+   //Label fallback begin:
+   generateLabelInstruction(LABEL, node, fallbackLabel, cg);
+
+   //test eax, 0x2
+   generateRegImmInstruction(TEST1AccImm1, node, accReg, 0x2, cg);
+   cg->stopUsingRegister(accReg);
+
+   //jne to transientFailure
+   if (transientConditions)
+      generateLabelInstruction(JNE4, node, transientFailureLabel, transientConditions, cg);
+   else
+      generateLabelInstruction(JNE4, node, transientFailureLabel, cg);
+
+   //jmp to persistent begin:
+   if (persistentConditions)
+      generateLabelInstruction(JMP4, node, persistentFailureLabel, persistentConditions, cg);
+   else
+      generateLabelInstruction(JMP4, node, persistentFailureLabel, cg);
+
+   //Label finish
+   generateLabelInstruction(LABEL, node, endLabel, endLabelConditions, cg);
+
+   cg->decReferenceCount(persistentFailureNode);
+   cg->decReferenceCount(transientFailureNode);
+   
+   return NULL;
+   }
+
+TR::Register *
+OMR::X86::TreeEvaluator::tfinishEvaluator(TR::Node *node, TR::CodeGenerator *cg)
+   {
+   generateInstruction(XEND, node, cg);
+   return NULL;
+   }
+
+TR::Register *
+OMR::X86::TreeEvaluator::tabortEvaluator(TR::Node *node, TR::CodeGenerator *cg)
+   {
+   //For now, we hardcode an abort reason as 0x04 just for simplicity.
+   //TODO: Find a way to detect the real abort reason here
+   generateImmInstruction(XABORT, node, 0x04, cg);
    return NULL;
    }
 

@@ -564,9 +564,9 @@
    TR::TreeEvaluator::badILOpEvaluator,                    // TR::monent (J9)
    TR::TreeEvaluator::badILOpEvaluator,                    // TR::monexit (J9)
    TR::TreeEvaluator::badILOpEvaluator,                    // TR::monexitfence (J9)
-   TR::TreeEvaluator::badILOpEvaluator,                  // TR::tstart (J9, WCode)
-   TR::TreeEvaluator::badILOpEvaluator,                 // TR::tfinish (J9, WCode)
-   TR::TreeEvaluator::badILOpEvaluator,                 // TR::tabort(J9, WCode)
+   TR::TreeEvaluator::tstartEvaluator,                  // TR::tstart 
+   TR::TreeEvaluator::tfinishEvaluator,                 // TR::tfinish 
+   TR::TreeEvaluator::tabortEvaluator,                 // TR::tabort
    TR::TreeEvaluator::badILOpEvaluator,                    // TR::instanceof (J9)
    TR::TreeEvaluator::badILOpEvaluator,                    // TR::checkcast (J9)
    TR::TreeEvaluator::badILOpEvaluator,                    // TR::checkcastAndNULLCHK (J9)
@@ -614,7 +614,8 @@
    TR::TreeEvaluator::badILOpEvaluator,                    // TR::ResolveCHK (J9)
    TR::TreeEvaluator::badILOpEvaluator,                    // TR::ResolveAndNULLCHK (J9)
    TR::TreeEvaluator::badILOpEvaluator,                    // TR::DIVCHK (J9)
-   TR::TreeEvaluator::OverflowCHKEvaluator,                // TR::OverflowCHK
+   TR::TreeEvaluator::overflowCHKEvaluator,                // TR::OverflowCHK
+   TR::TreeEvaluator::overflowCHKEvaluator,                // TR::UnsignedOverflowCHK
    TR::TreeEvaluator::badILOpEvaluator,                    // TR::BNDCHK (J9)
    TR::TreeEvaluator::badILOpEvaluator,                    // TR::ArrayCopyBNDCHK (J9)
    TR::TreeEvaluator::badILOpEvaluator,                    // TR::BNDCHKwithSpineCHK (J9)

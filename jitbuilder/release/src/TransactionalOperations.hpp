@@ -1,6 +1,6 @@
 /*******************************************************************************
  *
- * (c) Copyright IBM Corp. 2000, 2016
+ * (c) Copyright IBM Corp. 2016, 2016
  *
  *  This program and the accompanying materials are made available
  *  under the terms of the Eclipse Public License v1.0 and
@@ -14,28 +14,22 @@
  *
  * Contributors:
  *    Multiple authors (IBM Corp.) - initial implementation and documentation
- *******************************************************************************/
+ ******************************************************************************/
 
-#include "TestDriver.hpp"
 
-namespace TestCompiler
-{
-class SimplifierFoldAndTest : public TestDriver
+#ifndef TM_INCL
+#define TM_IMPL
+
+#include "ilgen/MethodBuilder.hpp"
+
+class TransactionalMethod : public TR::MethodBuilder
    {
-   public:
-
-   // int64_t testCompiledMethod(int32_t x);
-   typedef int64_t (*TestCompiledMethodType)(int32_t);
-
-   protected:
-
-   virtual void allocateTestData();
-   virtual void compileTestMethods();
-   virtual void invokeTests();
-   virtual void deallocateTestData();
-
    private:
-
-   static TestCompiledMethodType testCompiledMethod;
+   TR::IlType *pInt32;
+   
+   public:
+   TransactionalMethod(TR::TypeDictionary *);
+   virtual bool buildIL();
    };
-}
+
+#endif // !defined(TM_INCL)

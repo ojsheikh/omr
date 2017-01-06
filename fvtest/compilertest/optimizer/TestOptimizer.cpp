@@ -1,6 +1,6 @@
 /*******************************************************************************
  *
- * (c) Copyright IBM Corp. 2000, 2016
+ * (c) Copyright IBM Corp. 2016, 2016
  *
  *  This program and the accompanying materials are made available
  *  under the terms of the Eclipse Public License v1.0 and
@@ -16,31 +16,15 @@
  *    Multiple authors (IBM Corp.) - initial implementation and documentation
  *******************************************************************************/
 
-#include "compile/Compilation.hpp"
-#include "env/FrontEnd.hpp"
-#include "compile/Method.hpp"
-#include "tests/SimplifierFoldAndIlInjector.hpp"
-#include "ilgen/TypeDictionary.hpp"
+#include "optimizer/Optimizer.hpp"
 
-namespace TestCompiler
-{
-bool
-SimplifierFoldAndIlInjector::injectIL()
+const OptimizationStrategy *TestCompiler::Optimizer::_mockStrategy = NULL;
+
+const OptimizationStrategy *
+TestCompiler::Optimizer::optimizationStrategy(TR::Compilation *c)
    {
-   createBlocks(1);
-
-   TR::SymbolReference* i = newTemp(Int64);
-
-   // int64_t i = ((int64_t) parameter) & 0xFFFFFFFF00000000ll;
-   storeToTemp(i,
-         createWithoutSymRef(TR::land, 2,
-               iu2l
-                    (parameter(0, Int32)),
-               lconst(0xFFFFFFFF00000000ll)));
-
-   // return i;
-   returnValue(loadTemp(i));
-
-   return true;
+   if(TestCompiler::Optimizer::_mockStrategy)
+      return TestCompiler::Optimizer::_mockStrategy;
+   else
+      return OMR::OptimizerConnector::optimizationStrategy(c);
    }
-}

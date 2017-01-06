@@ -42,7 +42,9 @@ ALL_TESTS = \
             simple \
             structarray \
             switch \
-            toiltype
+            thunks \
+            toiltype \
+            worklist
 
 # Compile all the tests by default
 all: $(ALL_TESTS)
@@ -56,6 +58,7 @@ common_goal: $(ALL_TESTS)
 	./pow2
 	./simple
 	./toiltype
+	./worklist
 
 # Additional tests that may not work properly on all platforms
 all_goal: common_goal
@@ -64,10 +67,14 @@ all_goal: common_goal
 	./dotproduct
 	./linkedlist
 	./localarray
+	./operandstacktests
 	./pointer
 	./recfib
 	./structarray
 	./switch
+	./thunks
+	./toiltype
+	./transactionaloperations
 
 
 # In general, only compile and run tests that are known to work on all platforms
@@ -237,6 +244,24 @@ toiltype : libjitbuilder.a ToIlType.o
 ToIlType.o: src/ToIlType.cpp
 	g++ -o $@ $(CXXFLAGS) $<
 
+transactionaloperations : libjitbuilder.a TransactionalOperations.o
+	g++ -g -fno-rtti -o $@ TransactionalOperations.o -L. -ljitbuilder -ldl
+
+TransactionalOperations.o: src/TransactionalOperations.cpp src/TransactionalOperations.hpp
+	g++ -o $@ $(CXXFLAGS) $<
+
+worklist : libjitbuilder.a Worklist.o
+	g++ -g -fno-rtti -o $@ Worklist.o -L. -ljitbuilder -ldl
+
+Worklist.o: src/Worklist.cpp
+	g++ -o $@ $(CXXFLAGS) $<
+
+
+thunks : libjitbuilder.a Thunk.o
+	g++ -g -fno-rtti -o $@ Thunk.o -L. -ljitbuilder -ldl
+
+Thunk.o: src/Thunk.cpp
+	g++ -o $@ $(CXXFLAGS) $<
 
 
 clean:
