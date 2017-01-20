@@ -486,6 +486,9 @@ public:
    bool osrStateIsReliable() { return _osrStateIsReliable;}
    void setOsrStateIsReliable(bool b) { _osrStateIsReliable = b;}
 
+   bool osrInfrastructureRemoved() { return _osrInfrastructureRemoved; }
+   void setOSRInfrastructureRemoved(bool b) { _osrInfrastructureRemoved = b; }
+
    bool mayHaveLoops();
    bool hasLargeNumberOfLoops();
    bool hasNews();
@@ -815,6 +818,7 @@ public:
    bool isPotentialOSRPoint(TR::Node *node);
    bool isPotentialOSRPointWithSupport(TR::TreeTop *tt);
    int32_t getOSRInductionOffset(TR::Node *node);
+   bool requiresLeadingOSRPoint(TR::Node *node);
 
    // for OSR
    TR_OSRCompilationData* getOSRCompilationData() {return _osrCompilationData;}
@@ -1083,6 +1087,7 @@ private:
 
    bool                              _osrStateIsReliable;
    bool                              _canAffordOSRControlFlow;
+   bool                              _osrInfrastructureRemoved;
 
    TR_Hotness                        _nextOptLevel;
    int32_t                           _errorCode;
