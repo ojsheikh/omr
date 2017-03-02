@@ -207,7 +207,7 @@ enum TR_CompilationOptions
    TR_Enable390AccessRegs                 = 0x00020000 + 3,
    TR_SoftFailOnAssume                    = 0x00040000 + 3,
    TR_DisableNewBlockOrdering             = 0x00080000 + 3,
-   //Availabe                             = 0x00100000 + 3,
+   TR_DisableZNext                        = 0x00100000 + 3,
    TR_DisableDynamicLoopTransfer          = 0x00200000 + 3,
    TR_TraceNodeFlags                      = 0x00400000 + 3,
    TR_DisableNewBVA                       = 0x00800000 + 3,
@@ -336,7 +336,7 @@ enum TR_CompilationOptions
    TR_EnableHCR                           = 0x04000000 + 7, // enable hot code replacement
    TR_DisableTOCForConsts                 = 0x08000000 + 7,
    TR_UseLowPriorityQueueDuringCLP        = 0x10000000 + 7,
-   // Available                           = 0x20000000 + 7,
+   TR_DisableVectorBCD                    = 0x20000000 + 7,
    TR_EnableTrivialStoreSinking           = 0x40000000 + 7,
    // Available                           = 0x80000000 + 7,
 
