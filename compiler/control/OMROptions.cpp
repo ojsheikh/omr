@@ -725,7 +725,6 @@ TR::OptionTable OMR::Options::_jitOptions[] = {
    {"enableSpecializedEpilogues",         "O\tapply restore non-volatiles selectively",         SET_OPTION_BIT(TR_EnableSpecializedEpilogues), "F"},
    {"enableTailCallOpt",                  "R\tenable tall call optimization in peephole", SET_OPTION_BIT(TR_EnableTailCallOpt), "F"},
    {"enableThisLiveRangeExtension",       "R\tenable this live range extesion to the end of the method", SET_OPTION_BIT(TR_EnableThisLiveRangeExtension), "F"},
-   {"enableTieredCodeCache",              "D\tseparate code cache into cold and warm",   SET_OPTION_BIT(TR_EnableTieredCodeCache), "F", NOT_IN_SUBSET},
    {"enableTreePatternMatching",          "O\tEnable opts that use the TR_Pattern framework", RESET_OPTION_BIT(TR_DisableTreePatternMatching), "F"},
    {"enableTrivialStoreSinking",          "O\tenable trivial store sinking", SET_OPTION_BIT(TR_EnableTrivialStoreSinking), "F"},
    {"enableTrueRegisterModel",            "C\tUse true liveness model in local RA instead of Future Use Count", SET_OPTION_BIT(TR_EnableTrueRegisterModel), "F"},
@@ -1105,7 +1104,6 @@ TR::OptionTable OMR::Options::_jitOptions[] = {
    {"traceEarlyStackMap",               "L\ttrace early stack map",                        SET_TRACECG_BIT(TR_TraceEarlyStackMap), "P"},
    {"traceEscapeAnalysis",              "L\ttrace escape analysis",                        TR::Options::traceOptimization, escapeAnalysis, 0, "P"},
    {"traceEvaluation",                  "L\tdump output of tree evaluation passes",        SET_TRACECG_BIT(TR_TraceCGEvaluation), "P" },
-   {"traceExceptionAsyncCheckInsertion","L\ttrace async check insertion into exceptions",  TR::Options::traceOptimization, exceptionAsyncCheckInsertion, 0, "P"},  // Java specific option
    {"traceExplicitNewInitialization",   "L\ttrace explicit new initialization",            TR::Options::traceOptimization, explicitNewInitialization, 0, "P"},
    {"traceFieldPrivatization",          "L\ttrace field privatization",                    TR::Options::traceOptimization, fieldPrivatization, 0, "P"},
    {"traceForCodeMining=",              "L{regex}\tadd instruction annotations for code mining",
