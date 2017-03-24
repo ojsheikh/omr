@@ -1,6 +1,6 @@
 /*******************************************************************************
  *
- * (c) Copyright IBM Corp. 2000, 2017
+ * (c) Copyright IBM Corp. 2017, 2017
  *
  *  This program and the accompanying materials are made available
  *  under the terms of the Eclipse Public License v1.0 and
@@ -14,25 +14,12 @@
  *
  * Contributors:
  *    Multiple authors (IBM Corp.) - initial implementation and documentation
- *******************************************************************************/
+ ******************************************************************************/
 
-#ifndef TR_VALUEPROPAGATION_INCL
-#define TR_VALUEPROPAGATION_INCL
+#include "gtest/gtest.h"
 
-#include "optimizer/OMRValuePropagation.hpp"
-
-
-namespace TR
-{
-
-class ValuePropagation : public OMR::ValuePropagation
-   {
-   public:
-
-   ValuePropagation(TR::OptimizationManager *manager) :
-      OMR::ValuePropagation(manager) {}
-   };
-
+int main(int argc, char** argv) {
+   ::testing::InitGoogleTest(&argc, argv);
+   return RUN_ALL_TESTS();
 }
 
-#endif

@@ -92,6 +92,7 @@
 #include "x/codegen/FPTreeEvaluator.hpp"
 #include "x/codegen/X86Instruction.hpp"
 #include "x/codegen/X86Ops.hpp"                        // for TR_X86OpCode, etc
+#include "x/codegen/X86Ops_inlines.hpp"
 
 namespace OMR { class RegisterUsage; }
 namespace TR { class RegisterDependencyConditions; }
@@ -119,6 +120,7 @@ void TR_X86ProcessorInfo::initialize(TR::Compilation *comp)
    //
    _featureFlags.set(TR::Compiler->target.cpu.getX86ProcessorFeatureFlags(comp));
    _featureFlags2.set(TR::Compiler->target.cpu.getX86ProcessorFeatureFlags2(comp));
+   _featureFlags8.set(TR::Compiler->target.cpu.getX86ProcessorFeatureFlags8(comp));
 
    // Determine the processor vendor.
    //
@@ -233,10 +235,10 @@ OMR::X86::CodeGenerator::initialize(TR::Compilation *comp)
       supportsSSE2 = true;
 #endif // defined(TR_TARGET_X86) && !defined(J9HAMMER)
 
-   if (TR::Compiler->target.cpu.getX86SupportsTM(comp) && !comp->getOption(TR_DisableTM))
+   if (_targetProcessorInfo.supportsTM() && !comp->getOption(TR_DisableTM))
       {
 
-	 /**
+	  /**
 	  * Due to many verions of Haswell and a small number of Broadwell have defects for TM and then disabled by Intel,
 	  * we will return false for any versions before Broadwell.
 	  *
@@ -3103,9 +3105,10 @@ uint8_t OMR::X86::CodeGenerator::nodeResultGPRCount(TR::Node *node, TR_RegisterP
    TR_ASSERT(!self()->comp()->getOption(TR_DisableRegisterPressureSimulation), "assertion failure");
 
    // 32-bit integer constants practically never need a register on x86
+   //  (includes 64-bit integer constants with high word zero needed to maintain IL correctness)
    //
    if (  node->getOpCode().isLoadConst()
-      && node->getSize() <= 4
+      && (node->getSize() <= 4 || (node->getType().isInt64() && node->isHighWordZero()))
       && (node->getType().isAddress() || node->getType().isIntegral())
       && !(  self()->simulatedNodeState(node, state)._keepLiveUntil != NULL // Check if parent will become a RegStore that keeps this node live
          && state->_currentTreeTop->getNode()->getOpCode().isStoreDirect()

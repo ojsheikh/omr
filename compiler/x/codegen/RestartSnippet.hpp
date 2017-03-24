@@ -27,6 +27,7 @@
 #include "il/symbol/LabelSymbol.hpp"  // for LabelSymbol
 #include "infra/Assert.hpp"           // for TR_ASSERT
 #include "x/codegen/X86Ops.hpp"       // for TR_X86OpCode, ::JMP4, etc
+#include "x/codegen/X86Ops_inlines.hpp"
 
 namespace TR { class Node; }
 
@@ -131,12 +132,10 @@ class X86RestartSnippet  : public TR::Snippet
       return estimateRestartJumpLength(estimatedSnippetLocation, _restartLabel);
       }
 
-   // { RTSJ Support begins
    uint32_t estimateRestartJumpLength(TR_X86OpCodes branchOp, int32_t estimatedSnippetLocation)
       {
       return estimateRestartJumpLength(branchOp, estimatedSnippetLocation, _restartLabel);
       }
-   // } RTSJ Support ends
 
    };
 

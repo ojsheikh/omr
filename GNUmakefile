@@ -158,7 +158,7 @@ endif
 # JitBuilder
 ifeq (1,$(OMR_JITBUILDER))
 main_targets += jitbuilder
-test_targets += jitbuilder/release
+test_targets += fvtest/jitbuildertest jitbuilder/release
 endif
 
 DO_TEST_TARGET := yes
@@ -240,6 +240,7 @@ example:: $(test_prereqs)
 
 fvtest/algotest::$(test_prereqs)
 fvtest/gctest:: $(test_prereqs)
+fvtest/jitbuildertest:: $(test_prereqs)
 fvtest/porttest:: $(test_prereqs)
 fvtest/rastest:: $(test_prereqs)
 fvtest/sigtest:: $(test_prereqs)
