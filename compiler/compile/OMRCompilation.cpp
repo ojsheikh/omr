@@ -33,6 +33,7 @@
 #include "codegen/Instruction.hpp"             // for Instruction
 #include "codegen/RecognizedMethods.hpp"       // for RecognizedMethod, etc
 #include "compile/Compilation.hpp"             // for self(), etc
+#include "compile/Compilation_inlines.hpp"
 #include "compile/CompilationTypes.hpp"        // for TR_Hotness
 #include "compile/Method.hpp"                  // for TR_Method, etc
 #include "compile/OSRData.hpp"                 // for TR_OSRCompilationData, etc
@@ -567,12 +568,6 @@ OMR::Compilation::getHotnessName()
    return TR::Compilation::getHotnessName(self()->getMethodHotness());
    }
 
-TR::Compilation *
-OMR::Compilation::self()
-   {
-   return static_cast<TR::Compilation *>(this);
-   }
-
 
 TR::ResolvedMethodSymbol * OMR::Compilation::createJittedMethodSymbol(TR_ResolvedMethod *resolvedMethod)
    {
@@ -712,8 +707,7 @@ bool OMR::Compilation::isPotentialOSRPointWithSupport(TR::TreeTop *tt)
          if (node->getReferenceCount() > 1)
             {
             TR::TreeTop *cursor = tt->getPrevTreeTop();
-            TR::TreeTop *extendedBlockStart = tt->getNode()->getBlock()->startOfExtendedBlock()->getEntry();
-            while (cursor && cursor != extendedBlockStart)
+            while (cursor)
                {
                if ((cursor->getNode()->getOpCode().isCheck() || cursor->getNode()->getOpCodeValue() == TR::treetop)
                    && cursor->getNode()->getFirstChild() == node)
@@ -721,6 +715,9 @@ bool OMR::Compilation::isPotentialOSRPointWithSupport(TR::TreeTop *tt)
                   potentialOSRPoint = false;
                   break;
                   }
+               if (cursor->getNode()->getOpCodeValue() == TR::BBStart &&
+                   !cursor->getNode()->getBlock()->isExtensionOfPreviousBlock())
+                  break;
                cursor = cursor->getPrevTreeTop();
                }
             }
