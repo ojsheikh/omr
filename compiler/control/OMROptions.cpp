@@ -255,6 +255,7 @@ TR::OptionTable OMR::Options::_jitOptions[] = {
    {"disableBlockVersioner",              "O\tdisable block versioner",                        SET_OPTION_BIT(TR_DisableBlockVersioner), "P"},
    {"disableBranchOnCount",               "O\tdisable branch on count instructions for s390",  SET_OPTION_BIT(TR_DisableBranchOnCount), "F"},
    {"disableBranchPreload",               "O\tdisable return branch preload",                  SET_OPTION_BIT(TR_DisableBranchPreload), "F"},
+   {"disableCallConstUncommoning",        "O\tdisable uncommon call constant node phase",  SET_OPTION_BIT(TR_DisableCallConstUncommoning), "F"},
    {"disableCallGraphInlining",           "O\tdisable Interpreter Profiling based inlining and code size estimation",  SET_OPTION_BIT(TR_DisableCallGraphInlining), "P"},
    {"disableCatchBlockRemoval",           "O\tdisable catch block removal",                    TR::Options::disableOptimization, catchBlockRemoval, 0, "P"},
    {"disableCFGSimplification",           "O\tdisable Control Flow Graph simplification",      TR::Options::disableOptimization, CFGSimplification, 0, "P"},
@@ -1833,11 +1834,6 @@ OMR::Options::Options(
          self()->setAllowRecompilation(false); // disable recompilation for this method
       optimizationPlan->setOptLevelDowngraded(false);
       }
-
-   // TODO (GuardedStorage)
-#if defined(OMR_GC_CONCURRENT_SCAVENGER)
-   self()->setOption (TR_DisableArrayCopyOpts, true);
-#endif
 
    if (self()->getOption(TR_FullSpeedDebug))
       {

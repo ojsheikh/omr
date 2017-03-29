@@ -532,12 +532,11 @@ OMR::Z::CodeGenerator::CodeGenerator()
      _previouslyAssignedTo(self()->comp()->allocator("LocalRA")),
      _bucketPlusIndexRegisters(self()->comp()->allocator()),
      _currentDEPEND(NULL),
-     _outgoingArgLevelDuringTreeEvaluation(0)
+     _outgoingArgLevelDuringTreeEvaluation(0),
+     _evaluatingCompressionSequenceCounter(0)
    {
    TR::Compilation *comp = self()->comp();
    _cgFlags = 0;
-
-   _evalCompressionSequence = false;
 
    // Initialize Linkage for Code Generator
    self()->initializeLinkage();
@@ -855,6 +854,14 @@ OMR::Z::CodeGenerator::CodeGenerator()
 
    self()->getS390Linkage()->initS390RealRegisterLinkage();
    self()->setAccessStaticsIndirectly(true);
+
+   if (self()->isConcurrentScavengeEnabled())
+      {
+      // TODO (GuardedStorage): Is there a way to relax this condition? Currently we have to disable array copy opts to
+      // avoid missing guarded loads on memory to memory copies of reference objects. However this restriction seems too
+      // strict as we are disabling primitive array copies as well.
+      comp->setOption(TR_DisableArrayCopyOpts);
+      }
    }
 
 TR_GlobalRegisterNumber
@@ -2531,6 +2538,25 @@ static TR::Instruction *skipInternalControlFlow(TR::Instruction *insertInstr)
     } // for
   return insertInstr;
   }
+
+/**
+ * \brief
+ * Determines if a value should be in a commoned constant node or not.
+ *
+ * \details
+ *
+ * A node with a large constant can be materialized and left as commoned nodes.
+ * Smaller constants can be uncommoned so that they re-materialize every time when needed as a call
+ * parameter. This query is platform specific as constant loading can be expensive on some platforms
+ * but cheap on others, depending on their magnitude.
+ */
+bool OMR::Z::CodeGenerator::shouldValueBeInACommonedNode(int64_t value)
+   {
+   int64_t smallestPos = self()->getSmallestPosConstThatMustBeMaterialized();
+   int64_t largestNeg = self()->getLargestNegConstThatMustBeMaterialized();
+
+   return ((value >= smallestPos) || (value <= largestNeg));
+   }
 
 bool OMR::Z::CodeGenerator::supportsNamedVirtualRegisters() { return false; } // TODO : Identitiy needs folding
 
@@ -6070,6 +6096,16 @@ OMR::Z::CodeGenerator::supportsMergingOfHCRGuards()
           !self()->comp()->compileRelocatableCode();
    }
 
+bool
+OMR::Z::CodeGenerator::isConcurrentScavengeEnabled()
+   {
+#if defined(OMR_GC_CONCURRENT_SCAVENGER)
+   return TR::Compiler->target.cpu.getS390SupportsGuardedStorageFacility();
+#else
+   return false;
+#endif
+   }
+
 // Helpers for profiled interface slots
 void
 OMR::Z::CodeGenerator::addPICsListForInterfaceSnippet(TR::S390ConstantDataSnippet * ifcSnippet, TR::list<TR_OpaqueClassBlock*> * PICSlist)
@@ -6210,14 +6246,25 @@ OMR::Z::CodeGenerator::generateScratchRegisterManager(int32_t capacity)
 
 // TODO (GuardedStorage)
 void
-OMR::Z::CodeGenerator::setEvalCompressionSequence(bool val)
+OMR::Z::CodeGenerator::incEvaluatingCompressionSequence()
    {
-   _evalCompressionSequence= val;
+   TR_ASSERT(_evaluatingCompressionSequenceCounter != 0x7FFFFFFF, "_evaluatingCompressionSequenceCounter overflow");
+
+   ++_evaluatingCompressionSequenceCounter;
    }
-bool
-OMR::Z::CodeGenerator::isEvalCompressionSequence()
+
+void
+OMR::Z::CodeGenerator::decEvaluatingCompressionSequence()
    {
-   return _evalCompressionSequence;
+   TR_ASSERT(_evaluatingCompressionSequenceCounter != 0x00000000, "_evaluatingCompressionSequenceCounter overflow");
+
+   --_evaluatingCompressionSequenceCounter;
+   }
+
+bool
+OMR::Z::CodeGenerator::isEvaluatingCompressionSequence()
+   {
+   return _evaluatingCompressionSequenceCounter != 0;
    }
 
 void
