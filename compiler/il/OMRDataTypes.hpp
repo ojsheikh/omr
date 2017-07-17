@@ -39,10 +39,6 @@ namespace OMR { typedef OMR::DataType DataTypeConnector; }
 
 namespace TR { class DataType; }
 
-/* undefine null in case the platform already has a declaration */
-#undef null
-#define null {0}
-
 typedef int32_t CASECONST_TYPE;
 
 /* FIXME: Deprecate this and remove */
